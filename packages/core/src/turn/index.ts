@@ -3,10 +3,15 @@
  *
  *   PLAN -> PROMPT -> PAUSE -> CAPTURE -> SCORE(ASR ∥ Pron) -> REACT -> SPEAK -> PERSIST
  *
+ * Split into two halves so a real (stateless, serverless) turn can span two HTTP
+ * requests with the learner recording in between:
+ *   - planTurn:     PLAN + PROMPT  (returns the decision + prompt audio)
+ *   - completeTurn: SCORE..PERSIST (takes the captured audio, returns feedback)
+ * runTurn composes them with a capture callback for in-process use + tests.
+ *
  * Provider-agnostic: everything arrives via the interfaces in ../types and is
  * routed by LanguageConfig, never by `if (lang === ...)`. Imports NO provider SDKs.
- * In `coached` mode the scorer is skipped entirely (CLAUDE.md §6); the brain coaches
- * from the model audio. That path runs identically otherwise.
+ * In `coached` mode the scorer is skipped entirely (CLAUDE.md §6).
  */
 
 import { buildTurnContext } from '../brain';
@@ -25,6 +30,7 @@ import type {
   PronunciationProvider,
   ScoredResponse,
   TTSProvider,
+  TurnContext,
   TurnDecision,
   TurnRecord,
 } from '../types';
@@ -40,27 +46,28 @@ export interface TurnDeps {
   graph: CurriculumGraph;
 }
 
-export interface TurnInput {
-  userId: string;
-  /**
-   * Self-paced PAUSE + CAPTURE: the learner builds, then speaks when ready.
-   * The host (client/test) supplies the recorded audio for this decision.
-   */
-  capture: (decision: TurnDecision) => Promise<AudioBlob>;
-  /** injectable clock for deterministic tests */
-  now?: () => number;
-}
-
 export interface PromptAudio {
   setup: AudioRef;
   classmate?: AudioRef;
 }
 
-export interface TurnResult {
+export interface PlanResult {
   decision: TurnDecision;
   promptAudio: PromptAudio;
+  /** carried to completeTurn so interpretResponse sees the same context */
+  ctx: TurnContext;
+}
+
+export interface CompleteTurnInput {
+  userId: string;
+  decision: TurnDecision;
+  ctx: TurnContext;
+  audio: AudioBlob;
+  now?: () => number;
+}
+
+export interface CompleteTurnResult {
   transcript: string;
-  /** null in coached mode */
   pronScore: PronScore | null;
   feedback: Feedback;
   modelAudio: AudioRef;
@@ -69,57 +76,65 @@ export interface TurnResult {
   state: LearnerState;
 }
 
+export interface TurnInput {
+  userId: string;
+  /** self-paced PAUSE + CAPTURE: the learner builds, then speaks when ready */
+  capture: (decision: TurnDecision) => Promise<AudioBlob>;
+  now?: () => number;
+}
+
+export interface TurnResult extends CompleteTurnResult {
+  decision: TurnDecision;
+  promptAudio: PromptAudio;
+}
+
 function collectErrors(feedback: Feedback): ErrorDetail[] {
   return feedback.masteryDelta.filter(isMasteryError).map((d) => d.logError);
 }
 
-export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnResult> {
-  const now = input.now ?? Date.now;
-  const { config } = deps;
-  const lang = config.code;
-
-  // 1. PLAN — brain reads state + graph, picks the next block or recombination.
-  const state = await deps.store.getState(input.userId, lang);
-  const ctx = buildTurnContext(state, deps.graph, config);
+/** PLAN + PROMPT: brain picks the next block; TTS speaks the L1 setup. */
+export async function planTurn(deps: TurnDeps, userId: string): Promise<PlanResult> {
+  const lang = deps.config.code;
+  const state = await deps.store.getState(userId, lang);
+  const ctx = buildTurnContext(state, deps.graph, deps.config);
   const decision = await deps.llm.decideTurn(ctx);
 
-  // 2. PROMPT — speak the L1 setup; optionally a classmate attempt (off by default).
-  const setup = await deps.tts.synth(decision.englishSetup, config.tts.l1VoiceId, lang);
+  const setup = await deps.tts.synth(decision.englishSetup, deps.config.tts.l1VoiceId, lang);
   const promptAudio: PromptAudio = { setup };
   if (decision.classmateAttempt) {
-    const classmateVoice = config.tts.classmateVoiceIds?.[0] ?? config.tts.targetVoiceId;
-    promptAudio.classmate = await deps.tts.synth(
-      decision.classmateAttempt.utterance,
-      classmateVoice,
-      lang,
-    );
+    const classmateVoice = deps.config.tts.classmateVoiceIds?.[0] ?? deps.config.tts.targetVoiceId;
+    promptAudio.classmate = await deps.tts.synth(decision.classmateAttempt.utterance, classmateVoice, lang);
   }
 
-  // 3 + 4. PAUSE + CAPTURE — no timer; the learner speaks first.
-  const audio = await input.capture(decision);
+  return { decision, promptAudio, ctx };
+}
 
-  // 5. SCORE — ASR ∥ Pronunciation, in parallel. coached mode skips the scorer.
-  const coached = config.pronunciation.mode === 'coached';
+/** SCORE (ASR ∥ Pron) -> REACT -> SPEAK -> PERSIST. coached mode skips the scorer. */
+export async function completeTurn(
+  deps: TurnDeps,
+  input: CompleteTurnInput,
+): Promise<CompleteTurnResult> {
+  const now = input.now ?? Date.now;
+  const lang = deps.config.code;
+  const coached = deps.config.pronunciation.mode === 'coached';
+
   const [asrResult, pronScore] = await Promise.all([
-    deps.asr.transcribe(audio, lang),
+    deps.asr.transcribe(input.audio, lang),
     coached
       ? Promise.resolve<PronScore | null>(null)
-      : deps.pronunciation.score(audio, decision.referenceText, lang),
+      : deps.pronunciation.score(input.audio, input.decision.referenceText, lang),
   ]);
   const transcript = asrResult.text;
 
-  // 6. REACT — brain interprets into the warm model + one correction + next move.
-  const scored: ScoredResponse = { decision, transcript, pronScore };
-  const feedback = await deps.llm.interpretResponse(scored, ctx);
+  const scored: ScoredResponse = { decision: input.decision, transcript, pronScore };
+  const feedback = await deps.llm.interpretResponse(scored, input.ctx);
 
-  // 7. SPEAK — reveal the native model in the target voice.
-  const modelAudio = await deps.tts.synth(feedback.spokenModel, config.tts.targetVoiceId, lang);
+  const modelAudio = await deps.tts.synth(feedback.spokenModel, deps.config.tts.targetVoiceId, lang);
 
-  // 8. PERSIST — record the turn; the store applies mastery + invisible SRS.
   const record: TurnRecord = {
-    componentId: decision.focusComponentId,
-    promptText: decision.englishSetup,
-    referenceText: decision.referenceText,
+    componentId: input.decision.focusComponentId,
+    promptText: input.decision.englishSetup,
+    referenceText: input.decision.referenceText,
     transcript,
     overallScore: pronScore?.overall ?? null,
     errorDetail: collectErrors(feedback),
@@ -128,18 +143,21 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
     ts: now(),
   };
   await deps.store.recordTurn(input.userId, lang, record);
+  const state = await deps.store.getState(input.userId, lang);
 
-  // 9. LOOP — return the post-turn state so the next turn recombines the weak block.
-  const nextState = await deps.store.getState(input.userId, lang);
+  return { transcript, pronScore, feedback, modelAudio, record, state };
+}
 
-  return {
-    decision,
-    promptAudio,
-    transcript,
-    pronScore,
-    feedback,
-    modelAudio,
-    record,
-    state: nextState,
-  };
+/** Full lifecycle in one call (in-process + tests): plan, capture, complete. */
+export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnResult> {
+  const plan = await planTurn(deps, input.userId);
+  const audio = await input.capture(plan.decision);
+  const rest = await completeTurn(deps, {
+    userId: input.userId,
+    decision: plan.decision,
+    ctx: plan.ctx,
+    audio,
+    now: input.now,
+  });
+  return { decision: plan.decision, promptAudio: plan.promptAudio, ...rest };
 }
