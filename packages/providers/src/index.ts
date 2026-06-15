@@ -8,6 +8,7 @@
  */
 
 export * from './llm/mock';
+export * from './llm/anthropic';
 export * from './tts/mock';
 export * from './asr/mock';
 export * from './pronunciation/mock';
