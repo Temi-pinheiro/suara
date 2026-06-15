@@ -7,10 +7,14 @@
  * reverse never happens.
  */
 
+export * from './http';
 export * from './llm/mock';
 export * from './llm/anthropic';
 export * from './tts/mock';
+export * from './tts/elevenlabs';
 export * from './asr/mock';
+export * from './asr/scribe';
 export * from './pronunciation/mock';
 export * from './pronunciation/coached';
+export * from './pronunciation/speechsuper';
 export * from './store/memory';

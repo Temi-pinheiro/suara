@@ -1,9 +1,7 @@
-import { createHash } from 'node:crypto';
 import type { AudioRef, LangCode, TTSProvider } from '@suara/core';
+import { contentHash } from './hash';
 
-export function contentHash(text: string, voiceId: string): string {
-  return createHash('sha256').update(`${voiceId}::${text}`).digest('hex').slice(0, 16);
-}
+export { contentHash } from './hash';
 
 /**
  * Mock TTS that honors the cost rule: cache by (text, voiceId) hash. Teacher lines

@@ -168,7 +168,7 @@ pnpm gen:audio      # offline batch pre-generation of cacheable TTS
 Required env (see `.env.example`): `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`,
 `SPEECHSUPER_APP_KEY`/`SPEECHSUPER_SECRET`, `AZURE_SPEECH_KEY`/`AZURE_REGION`,
 `DATABASE_URL` (Supabase Postgres), `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`,
-`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_BUCKET`.
+`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_BUCKET`/`R2_PUBLIC_BASE_URL`.
 (No pronunciation keys needed for Indonesian.)
 
 > **Deploy shell:** thin serverless (Supabase Edge Functions by default; Vercel

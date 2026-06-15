@@ -12,3 +12,4 @@ export * from './db/client';
 export * from './db/schema';
 export * from './db/learnerStore';
 export * from './db/pendingStore';
+export * from './storage/r2';
