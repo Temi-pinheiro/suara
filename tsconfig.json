@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@suara/core": ["packages/core/src/index.ts"],
+      "@suara/providers": ["packages/providers/src/index.ts"],
+      "@suara/curriculum": ["packages/curriculum/src/index.ts"]
+    }
+  },
+  "include": ["packages/*/src", "tests"],
+  // packages/client has its own RN/Expo toolchain + tsconfig; typecheck it
+  // separately via `pnpm --filter @suara/client typecheck`.
+  "exclude": ["packages/client"]
+}

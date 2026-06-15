@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@suara/core": ["../core/src/index.ts"],
+      "@suara/curriculum": ["../curriculum/src/index.ts"],
+      "@suara/providers": ["../providers/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

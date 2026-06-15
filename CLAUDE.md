@@ -69,8 +69,9 @@ feedback layer varies, via three modes (see §5 and `/docs/PLAN.md`).
     /asr           # ScribeProvider / WhisperProvider
     /pronunciation # SpeechSuperProvider, AzureProvider, CoachedProvider (no-op scorer)
   /curriculum      # component dependency graphs, one per language (the IP)
-  /server          # API (Fastify), auth, persistence (Postgres + Drizzle)
-  /client          # Expo / React Native voice app (mic, playback, minimal UI)
+  /server          # thin serverless handlers + turn orchestration; auth +
+                   #   persistence via Supabase Postgres (Drizzle); audio on Cloudflare R2
+  /client          # Expo / React Native (+ RN Web) voice app (mic, playback, minimal UI)
 /docs
   PLAN.md          # full build spec — source of truth for scope & phases
   language-matrix.md
@@ -166,7 +167,14 @@ pnpm gen:audio      # offline batch pre-generation of cacheable TTS
 
 Required env (see `.env.example`): `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`,
 `SPEECHSUPER_APP_KEY`/`SPEECHSUPER_SECRET`, `AZURE_SPEECH_KEY`/`AZURE_REGION`,
-`DATABASE_URL`. (No pronunciation keys needed for Indonesian.)
+`DATABASE_URL` (Supabase Postgres), `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`,
+`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_BUCKET`/`R2_PUBLIC_BASE_URL`.
+(No pronunciation keys needed for Indonesian.)
+
+> **Deploy shell:** thin serverless (Supabase Edge Functions by default; Vercel
+> functions if a Node runtime is preferred) — swappable, since `core` is
+> host-agnostic. `pnpm gen:audio` runs as a Node batch job that writes cached
+> audio to Cloudflare R2.
 
 ## 8. Definition of done (per feature)
 
