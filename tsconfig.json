@@ -9,5 +9,8 @@
       "@suara/curriculum": ["packages/curriculum/src/index.ts"]
     }
   },
-  "include": ["packages/*/src", "tests"]
+  "include": ["packages/*/src", "tests"],
+  // packages/client has its own RN/Expo toolchain + tsconfig; typecheck it
+  // separately via `pnpm --filter @suara/client typecheck`.
+  "exclude": ["packages/client"]
 }
