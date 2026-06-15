@@ -1,0 +1,20 @@
+# OS
+.DS_Store
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+.expo/
+.vercel/
+
+# Logs
+*.log

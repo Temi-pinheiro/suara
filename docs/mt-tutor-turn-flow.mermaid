@@ -1,0 +1,20 @@
+flowchart TD
+    A[("Component graph + invisible SRS<br/>next unlocked block, weak items to recombine")]:::data
+    A --> B["Teacher Brain (LLM)<br/>introduce next building block OR recombine old ones<br/>teach the rule, not a word list"]:::brain
+    B --> C["ElevenLabs TTS<br/>English setup + reassurance<br/>'How would you say...?' (don't try to remember)"]:::voice
+    C --> P{{"Self-paced pause<br/>learner thinks, taps when ready"}}:::pace
+    P --> D["Learner CONSTRUCTS the sentence<br/>produces it, does not just repeat"]:::learner
+    D --> E["ASR — did they build the right words and order?"]:::score
+    D --> F["Tone scorer / CAPT — did the tones land?<br/>verifies what the CD never could"]:::score
+    E --> G["Teacher Brain (LLM)<br/>reveal model answer + gentle MT-style correction"]:::brain
+    F --> G
+    G --> K["ElevenLabs TTS — native model + warm fix<br/>optional: a 'classmate' voice attempts or errs first"]:::voice
+    K --> J[("Invisible SRS update<br/>requeue weak block to RECOMBINE soon, never quiz")]:::data
+    J -. next, slightly harder .-> B
+
+    classDef brain fill:#dbeafe,stroke:#1e40af,color:#0f172a
+    classDef voice fill:#dcfce7,stroke:#166534,color:#0f172a
+    classDef score fill:#fef3c7,stroke:#92400e,color:#0f172a
+    classDef data fill:#ede9fe,stroke:#5b21b6,color:#0f172a
+    classDef learner fill:#f1f5f9,stroke:#475569,color:#0f172a
+    classDef pace fill:#fae8ff,stroke:#a21caf,color:#0f172a
