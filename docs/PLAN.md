@@ -181,6 +181,10 @@ low-intermediate spoken plateau, expandable.
 
 - **TTS:** cache by content hash; pre-generate all component intros + model answers
   via batch. Only dynamic feedback is synthesized on demand (and not in real time).
+- **Audio storage on Cloudflare R2 (zero egress):** the cache re-serves the *same*
+  teacher-audio files to every learner — pure repeated egress, the dominant infra
+  cost for an all-voice app. R2 charges no egress, so this is the single biggest
+  infra-cost lever; storage/DB/compute are a rounding error next to the API bills.
 - **LLM:** prompt-cache the static persona + curriculum context; tier models; batch
   offline generation. Verify current caching/batch details at docs.claude.com.
 - **Scoring:** pronunciation APIs bill per request; debounce retries, skip empty/aborted
@@ -191,8 +195,11 @@ low-intermediate spoken plateau, expandable.
 ## 9. Tech stack (recommended)
 
 - **Language:** TypeScript, pnpm monorepo.
-- **Server:** Node + Fastify; Postgres + Drizzle; object storage for audio cache.
-- **Client:** Expo / React Native (mobile-first, voice-centric); minimal UI.
+- **Server:** thin serverless compute (Supabase Edge Functions by default; Vercel
+  functions if a Node runtime is preferred) — key-holding proxy + turn orchestration.
+- **Data/storage:** Supabase Postgres (Drizzle ORM); Cloudflare R2 for the audio
+  cache (zero egress — see §8). `gen:audio` is a Node batch job writing to R2.
+- **Client:** Expo / React Native, mobile-first + RN Web (web-capable); minimal UI.
 - **Providers:** Anthropic (brain), ElevenLabs (TTS/ASR), SpeechSuper + Azure
   (pronunciation). All behind the interfaces in `CLAUDE.md §5`.
 
@@ -265,9 +272,22 @@ No hard pronunciation-scoring gap remains in the chosen language set.
 
 ---
 
-## 13. Open decisions for the founder
+## 13. Decisions (resolved at kickoff)
 
-1. Mobile-only or also web for v1?
-2. Build vs. license the Mandarin component sequence (authoring is the long pole).
-3. How prominent should simulated classmates be (core device vs. optional flavor)?
-4. Indonesian: ship `coached` only, or invest early in ms-MY-based automated scoring?
+> Resolved in the kickoff design pass — see `docs/design-pass.md` for full rationale.
+
+1. **Platform — mobile-first, web-capable.** Expo (iOS/Android) now; keep RN Web
+   compiling so a browser build is near-free later. QA on mobile.
+2. **Backend — thin serverless + managed DB + object storage.** Replaces the
+   Fastify-monolith assumption. Infra: Cloudflare R2 (audio) + Supabase
+   (Postgres + auth) + serverless compute. `core` stays host-agnostic.
+3. **Curriculum — build in-house.** LLM-drafted, native-teacher-gated before Phase 2.
+   ("License" is largely theoretical — MT sequences are proprietary and don't map to
+   the recombination-DAG schema.) The 30-block starter unblocks Phase 1.
+4. **Simulated classmates — supported, off by default.** `classmateAttempt` stays in
+   the schema; ship Phase 1 with classmates disabled, enable once the core loop is
+   proven. No turn-lifecycle rework later.
+5. **Indonesian — `coached`-only.** Non-tonal, near-phonemic, no `id-ID` vendor;
+   defer ms-MY scoring, revisit only if session data shows a gap.
+6. **Provider keys — all available.** Build/test on mocks (CI never calls live);
+   exercise real providers from Phase 1.
