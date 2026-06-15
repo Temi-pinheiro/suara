@@ -17,4 +17,5 @@ export * from './asr/scribe';
 export * from './pronunciation/mock';
 export * from './pronunciation/coached';
 export * from './pronunciation/speechsuper';
+export * from './pronunciation/azure';
 export * from './store/memory';

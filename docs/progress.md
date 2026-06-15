@@ -43,7 +43,7 @@ imports zero provider/infra SDKs** (verified).
 | `LLMProvider` (brain) | **AnthropicProvider** — Haiku/Opus tiering, prompt caching, forced tool-use | MockLLM |
 | `TTSProvider` | **ElevenLabsTTSProvider** + content-hash cache over R2 | MockTTS |
 | `ASRProvider` | **ScribeASRProvider** (ElevenLabs Scribe) | MockASR |
-| `PronunciationProvider` | **SpeechSuperProvider** (tone) · **CoachedProvider** (no-op, Indonesian) | MockPronunciation |
+| `PronunciationProvider` | **AzureProvider** (self-serve, zh-CN tone + segmental) · **SpeechSuperProvider** (richest tone) · **CoachedProvider** (no-op, Indonesian) — vendor chosen by `pronunciation.provider` | MockPronunciation |
 | `LearnerStore` | **DrizzleLearnerStore** (Supabase Postgres) | InMemoryLearnerStore |
 | object cache | **R2ObjectStore** (`@aws-sdk/client-s3`) | InMemoryObjectStore |
 
@@ -90,6 +90,10 @@ POST attempt → completeTurn: ASR ∥ Pronunciation → brain.interpretResponse
 - The Expo app on a device/simulator (verified via tests + full RN typecheck).
 - **SpeechSuper `coreType` + response field names** — structurally faithful, but
   confirm against your account; mapping is isolated + tested for easy tuning.
+  (Not a blocker: SpeechSuper keys require waiting for their team to make contact.
+  **Azure pronunciation assessment** is the self-serve alternative — set
+  `pronunciation: { mode: 'tone', provider: 'azure' }` to use it instead, zero core
+  diffs; Mandarin can also run in `coached` mode meanwhile.)
 
 ---
 
