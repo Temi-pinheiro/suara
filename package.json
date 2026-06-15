@@ -1,0 +1,23 @@
+{
+  "name": "suara",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:turn": "vitest run tests/turn.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "gen:audio": "echo \"gen:audio batch pre-generation lands in Phase 2\" && exit 0",
+    "dev": "echo \"dev (serverless handlers + Expo) wires up in Phase 1\" && exit 0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}
