@@ -60,7 +60,13 @@ describe('turn handlers — two-phase HTTP turn', () => {
     expect(packet.turnId).toBe('turn-1');
     expect(packet.englishSetup.length).toBeGreaterThan(0);
     expect(packet.setupAudioUrl).toContain('mock://audio/');
-    expect('targetUtterance' in packet).toBe(false); // the target answer is never sent pre-attempt
+    // introduce TEACHES the new block (you can't produce an unheard word) ...
+    expect(packet.action).toBe('introduce');
+    expect(packet.teach?.surface).toBe('我');
+    expect(packet.teach?.pinyin).toBe('wǒ');
+    expect(packet.teach?.modelAudioUrl).toContain('mock://audio/');
+    // ... but the full target sentence is still never sent pre-attempt
+    expect('targetUtterance' in packet).toBe(false);
 
     const result = await attemptHandler(h, { turnId: 'turn-1', audio: spokenAudio('我') });
     expect(result.decision).toBe('advance');

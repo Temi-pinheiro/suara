@@ -16,18 +16,33 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
   // rapid double-tap from firing an action twice (double recorder, double submit).
   const busy = useRef(false);
 
+  // A clip that won't load (unplayable URL, no audio) must NOT wedge the turn — the
+  // learner can still proceed. Failures are logged, not fatal.
+  const safePlay = useCallback(
+    async (url: string) => {
+      try {
+        await audio.play(url);
+      } catch (e) {
+        console.warn('audio playback failed:', url, e);
+      }
+    },
+    [audio],
+  );
+
   const load = useCallback(async () => {
     dispatch({ type: 'LOAD' });
     try {
       const prompt = await api.nextPrompt();
       dispatch({ type: 'PROMPT_READY', prompt });
-      await audio.play(prompt.setupAudioUrl);
-      if (prompt.classmateAudioUrl) await audio.play(prompt.classmateAudioUrl);
+      await safePlay(prompt.setupAudioUrl);
+      // introduce: model the new block so the learner HEARS it before producing it
+      if (prompt.teach?.modelAudioUrl) await safePlay(prompt.teach.modelAudioUrl);
+      if (prompt.classmateAudioUrl) await safePlay(prompt.classmateAudioUrl);
       dispatch({ type: 'PROMPT_PLAYED' });
     } catch (e) {
       dispatch({ type: 'FAIL', error: e instanceof Error ? e.message : String(e) });
     }
-  }, [api, audio]);
+  }, [api, safePlay]);
 
   const speak = useCallback(async () => {
     if (busy.current || stateRef.current.phase !== 'awaiting') return;
@@ -52,7 +67,7 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
       dispatch({ type: 'SUBMIT', audio: rec });
       const result = await api.submitAttempt(turnId, rec);
       dispatch({ type: 'SCORED', result });
-      await audio.play(result.modelAudioUrl); // reveal the model AFTER the attempt
+      await safePlay(result.modelAudioUrl); // reveal the model AFTER the attempt
       dispatch({ type: 'FEEDBACK_PLAYED' });
       if (result.decision !== 'rebuild') await load();
     } catch (e) {
@@ -60,7 +75,7 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
     } finally {
       busy.current = false;
     }
-  }, [api, audio, load]);
+  }, [api, audio, safePlay, load]);
 
   useEffect(() => {
     void load();

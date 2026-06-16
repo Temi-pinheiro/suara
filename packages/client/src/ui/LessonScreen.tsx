@@ -24,6 +24,15 @@ export function LessonScreen({ api, audio }: Props) {
         {/* L1 setup — optional visual aid; the spoken version leads */}
         {prompt && <Text style={styles.setup}>{prompt.englishSetup}</Text>}
 
+        {/* introduce: show the new block you just heard, so you can say it */}
+        {prompt?.teach && (phase === 'prompting' || phase === 'awaiting' || phase === 'recording') && (
+          <View style={styles.teach}>
+            <Text style={styles.hanzi}>{prompt.teach.surface}</Text>
+            {prompt.teach.pinyin ? <Text style={styles.pinyin}>{prompt.teach.pinyin}</Text> : null}
+            <Text style={styles.teachHint}>Listen, then say it.</Text>
+          </View>
+        )}
+
         {phase === 'loading' && <ActivityIndicator size="large" color="#3A6EA5" />}
 
         {attempt && phase === 'feedback' && (
@@ -53,6 +62,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'white' },
   body: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', gap: 12 },
   setup: { fontSize: 22, lineHeight: 30, textAlign: 'center', color: '#2B2B2B' },
+  teach: { alignItems: 'center', marginTop: 8, gap: 4 },
+  hanzi: { fontSize: 64, color: '#2B2B2B', fontWeight: '500' },
+  pinyin: { fontSize: 24, color: '#3A6EA5' },
+  teachHint: { fontSize: 14, color: '#6A6A6A', marginTop: 4 },
   correction: { fontSize: 18, textAlign: 'center', color: '#3A6EA5', marginTop: 12 },
   errorBox: { alignItems: 'center', gap: 16 },
   error: { fontSize: 14, color: '#B5524B', marginTop: 12, textAlign: 'center' },

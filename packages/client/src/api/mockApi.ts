@@ -10,15 +10,17 @@ import type { AttemptResult, PromptPacket, SessionApi } from './types';
 const DEFAULT_SCRIPT: PromptPacket[] = [
   {
     turnId: 't1',
-    englishSetup: "Let's start. How would you say: I want coffee? No rush.",
+    action: 'introduce',
+    englishSetup: 'In Mandarin, "I" is wǒ. Listen, then say it.',
     setupAudioUrl: 'mock://setup/t1',
-    targetUtterance: { surface: '我要咖啡', pinyin: 'wǒ yào kāfēi', expectedTones: '3-4-1-1' },
+    teach: { surface: '我', pinyin: 'wǒ', modelAudioUrl: 'mock://teach/t1' },
   },
   {
     turnId: 't2',
-    englishSetup: 'Now swap the drink. How would you say: I want tea?',
+    action: 'introduce',
+    englishSetup: 'New word: "tea" is chá. Listen, then say it.',
     setupAudioUrl: 'mock://setup/t2',
-    targetUtterance: { surface: '我要茶', pinyin: 'wǒ yào chá', expectedTones: '3-4-2' },
+    teach: { surface: '茶', pinyin: 'chá', modelAudioUrl: 'mock://teach/t2' },
   },
 ];
 

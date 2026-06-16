@@ -18,11 +18,21 @@ export interface PlanRequest {
   userId: string;
 }
 
+/** The new block taught on an `introduce` turn (hear + see it before producing). */
+export interface TeachBlockDto {
+  surface: string;
+  pinyin?: string;
+  modelAudioUrl: string;
+}
+
 export interface PromptPacketDto {
   turnId: string;
-  /** L1 setup — spoken + shown as an optional aid. No target answer here. */
+  action: 'introduce' | 'recombine';
+  /** L1 setup — spoken + shown. On recombine it must NOT reveal the target answer. */
   englishSetup: string;
   setupAudioUrl: string;
+  /** present only on `introduce` turns — the new block to hear/see first */
+  teach?: TeachBlockDto;
   classmateAudioUrl?: string;
 }
 
@@ -63,9 +73,15 @@ export async function planTurnHandler(h: TurnHandlerDeps, req: PlanRequest): Pro
 
   const packet: PromptPacketDto = {
     turnId,
+    action: plan.decision.action,
     englishSetup: plan.decision.englishSetup,
     setupAudioUrl: plan.promptAudio.setup.url ?? '',
   };
+  if (plan.teach) {
+    packet.teach = plan.teach.pinyin
+      ? { surface: plan.teach.surface, pinyin: plan.teach.pinyin, modelAudioUrl: plan.teach.model.url ?? '' }
+      : { surface: plan.teach.surface, modelAudioUrl: plan.teach.model.url ?? '' };
+  }
   if (plan.promptAudio.classmate?.url) {
     packet.classmateAudioUrl = plan.promptAudio.classmate.url;
   }

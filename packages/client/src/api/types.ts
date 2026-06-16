@@ -7,11 +7,22 @@
 
 import type { AudioBlobRef } from '../audio/types';
 
+/** The new block taught on an `introduce` turn — hear + see it before producing. */
+export interface TeachBlock {
+  surface: string;
+  pinyin?: string;
+  modelAudioUrl: string;
+}
+
 export interface PromptPacket {
   turnId: string;
+  /** 'introduce' teaches a new block first; 'recombine' is construct-first */
+  action?: 'introduce' | 'recombine';
   /** L1 setup — spoken, and shown as an optional visual aid */
   englishSetup: string;
   setupAudioUrl: string;
+  /** present on introduce turns: the new block to hear + see first */
+  teach?: TeachBlock;
   /**
    * The target answer — construct-first, so the real server OMITS this before the
    * attempt (the learner must build it). The mock provides it for convenience; the
