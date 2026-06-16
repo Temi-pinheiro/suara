@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { HttpSessionApi } from './src/api/httpApi';
 import { MockSessionApi } from './src/api/mockApi';
 import type { SessionApi } from './src/api/types';
-import { ExpoAudioIO } from './src/audio/expoAudio';
+import { useExpoAudioIO } from './src/audio/expoAudio';
 import { LessonScreen } from './src/ui/LessonScreen';
 
 // Point at a real backend with EXPO_PUBLIC_SUARA_API (e.g. http://localhost:8787 via
@@ -12,9 +12,9 @@ const apiUrl = process.env.EXPO_PUBLIC_SUARA_API;
 const api: SessionApi = apiUrl
   ? new HttpSessionApi({ baseUrl: apiUrl, userId: process.env.EXPO_PUBLIC_SUARA_USER ?? 'demo' })
   : new MockSessionApi();
-const audio = new ExpoAudioIO();
 
 export default function App() {
+  const audio = useExpoAudioIO();
   return (
     <>
       <StatusBar style="auto" />
