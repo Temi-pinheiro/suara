@@ -13,6 +13,10 @@
     "test:turn": "vitest run tests/turn.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "smoke": "tsx packages/server/scripts/smoke.mts",
+    "db:generate": "pnpm --filter @suara/server exec drizzle-kit generate",
+    "db:migrate": "pnpm --filter @suara/server exec drizzle-kit migrate",
+    "db:seed": "pnpm --filter @suara/server exec tsx scripts/seed.mts",
+    "turn": "pnpm --filter @suara/server exec tsx scripts/turn.mts",
     "gen:audio": "echo \"gen:audio batch pre-generation lands in Phase 2\" && exit 0",
     "dev": "echo \"dev (serverless handlers + Expo) wires up in Phase 1\" && exit 0"
   },
