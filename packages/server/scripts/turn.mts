@@ -12,6 +12,8 @@ import { completeTurn, planTurn } from '@suara/core';
 import type { AudioBlob, LanguageConfig } from '@suara/core';
 import { createTurnHandlerDeps } from '../src/prod';
 import { pcmToWav } from '../src/audio/wav';
+import { UsageMeter } from '../src/cost/meter';
+import { estimateCost } from '../src/cost/pricing';
 
 try {
   process.loadEnvFile('../../.env');
@@ -60,7 +62,8 @@ const config: LanguageConfig = {
   pronunciation: { mode: 'tone', provider: 'azure' },
 };
 
-const { deps } = createTurnHandlerDeps(config, process.env);
+const meter = new UsageMeter();
+const { deps } = createTurnHandlerDeps(config, process.env, { meter });
 
 console.log(`\n=== Suara live turn — user "${USER}" ===\n`);
 
@@ -100,5 +103,16 @@ const state = await deps.store.getState(USER, 'cmn');
 console.log('\nPERSIST (read back from Supabase)');
 console.log('  known      :', state.known);
 console.log('  turnIndex  :', state.turnIndex);
+
+const cost = estimateCost(meter.usage);
+console.log('\nCOST (this turn, approx)');
+console.log('  tts        :', meter.usage.ttsCalls, 'calls /', meter.usage.ttsChars, 'chars');
+console.log('  asr / pron :', meter.usage.asrCalls, '/', meter.usage.pronCalls, 'calls');
+console.log('  llm        :', JSON.stringify(meter.usage.llm));
+console.log(
+  '  estimate   : $' + cost.totalUsd.toFixed(4),
+  `(llm $${cost.llmUsd.toFixed(4)} · tts $${cost.ttsUsd.toFixed(4)} · asr $${cost.asrUsd.toFixed(4)} · pron $${cost.pronUsd.toFixed(4)})`,
+);
+
 console.log('\n✅ live turn complete\n');
 process.exit(0);
