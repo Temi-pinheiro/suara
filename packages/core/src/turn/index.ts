@@ -70,7 +70,7 @@ export interface PlanResult {
 }
 
 /** Split a curriculum surface like "我 (wǒ)" into { surface: '我', pinyin: 'wǒ' }. */
-function splitSurface(raw: string): { surface: string; pinyin?: string } {
+export function splitSurface(raw: string): { surface: string; pinyin?: string } {
   const m = raw.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   if (m) return { surface: m[1]!.trim(), pinyin: m[2]!.trim() };
   return { surface: raw.trim() };

@@ -15,3 +15,4 @@ export * from './db/learnerStore';
 export * from './db/pendingStore';
 export * from './storage/r2';
 export * from './audio/wav';
+export * from './audio/pregenerate';
