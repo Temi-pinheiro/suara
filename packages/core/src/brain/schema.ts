@@ -7,6 +7,7 @@
 import type {
   DecisionAction,
   Feedback,
+  MasteryChange,
   MasteryDelta,
   TurnDecision,
   TurnOutcome,
@@ -56,7 +57,37 @@ export const FEEDBACK_SCHEMA = {
     spokenModel: { type: 'string' },
     correction: { type: 'string' },
     decision: { type: 'string', enum: ['advance', 'rebuild', 'ease'] },
-    masteryDelta: { type: 'array' },
+    masteryDelta: {
+      type: 'array',
+      items: {
+        oneOf: [
+          {
+            type: 'object',
+            required: ['componentId', 'change'],
+            properties: {
+              componentId: { type: 'string' },
+              change: { type: 'string', enum: ['strengthen', 'partial', 'weaken'] },
+            },
+          },
+          {
+            type: 'object',
+            required: ['logError'],
+            properties: {
+              logError: {
+                type: 'object',
+                required: ['unit', 'expected', 'produced'],
+                properties: {
+                  unit: { type: 'string' },
+                  expected: { type: 'string' },
+                  produced: { type: 'string' },
+                  score: { type: 'number' },
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
     nextPrompt: { type: ['string', 'null'] },
     revealNote: { type: ['string', 'null'] },
   },
@@ -65,6 +96,34 @@ export const FEEDBACK_SCHEMA = {
 const DECISION_ACTIONS: readonly DecisionAction[] = ['introduce', 'recombine'];
 const VERDICTS: readonly Verdict[] = ['correct', 'close', 'off'];
 const OUTCOMES: readonly TurnOutcome[] = ['advance', 'rebuild', 'ease'];
+const MASTERY_CHANGES: readonly MasteryChange[] = ['strengthen', 'partial', 'weaken'];
+
+/** Keep only well-formed deltas; a chatty brain can't smuggle a bad `change` into SRS. */
+function coerceMasteryDeltas(arr: unknown[]): MasteryDelta[] {
+  const out: MasteryDelta[] = [];
+  for (const d of arr) {
+    if (!isRecord(d)) continue;
+    if (isRecord(d.logError)) {
+      const e = d.logError;
+      const entry: MasteryDelta = {
+        logError: {
+          unit: typeof e.unit === 'string' ? e.unit : String(e.unit ?? ''),
+          expected: typeof e.expected === 'string' ? e.expected : String(e.expected ?? ''),
+          produced: typeof e.produced === 'string' ? e.produced : String(e.produced ?? ''),
+          ...(typeof e.score === 'number' ? { score: e.score } : {}),
+        },
+      };
+      out.push(entry);
+    } else if (
+      typeof d.componentId === 'string' &&
+      MASTERY_CHANGES.includes(d.change as MasteryChange)
+    ) {
+      out.push({ componentId: d.componentId, change: d.change as MasteryChange });
+    }
+    // anything else (unknown change, missing fields) is dropped
+  }
+  return out;
+}
 
 class SchemaError extends Error {}
 
@@ -137,7 +196,7 @@ export function assertFeedback(x: unknown): Feedback {
     spokenModel: str(x, 'spokenModel'),
     correction: str(x, 'correction'),
     decision,
-    masteryDelta: x.masteryDelta as MasteryDelta[],
+    masteryDelta: coerceMasteryDeltas(x.masteryDelta),
     nextPrompt: typeof x.nextPrompt === 'string' ? x.nextPrompt : null,
     revealNote: typeof x.revealNote === 'string' ? x.revealNote : null,
   };

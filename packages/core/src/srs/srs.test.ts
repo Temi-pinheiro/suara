@@ -6,7 +6,7 @@ import {
   isDue,
   selectDueTargets,
 } from './index';
-import type { LearnerState } from '../types';
+import type { LearnerState, MasteryChange } from '../types';
 
 const NOW = 1_700_000_000_000;
 
@@ -30,6 +30,23 @@ describe('srs scheduling', () => {
   it('weakening cannot drive strength below zero', () => {
     const rec = applyChange({ componentId: 'c01', strength: 0.1, lastSeen: 0, dueAt: 0 }, 'c01', 'weaken', NOW);
     expect(rec.strength).toBe(0);
+  });
+
+  it('a bad change value never yields NaN strength/dueAt (brain robustness)', () => {
+    const rec = applyChange(undefined, 'c01', 'bogus' as MasteryChange, NOW);
+    expect(rec.strength).toBe(0);
+    expect(Number.isFinite(rec.dueAt)).toBe(true);
+  });
+
+  it('recovers from a corrupt prior strength', () => {
+    const rec = applyChange(
+      { componentId: 'c01', strength: Number.NaN, lastSeen: 0, dueAt: 0 },
+      'c01',
+      'strengthen',
+      NOW,
+    );
+    expect(Number.isFinite(rec.strength)).toBe(true);
+    expect(rec.strength).toBeGreaterThan(0);
   });
 });
 

@@ -67,6 +67,13 @@ EVERY TIME the learner attempts:
 - Decide: advance, rebuild once, or ease off (move on and quietly requeue). Two
   misses in a row -> ease off. Never let them feel stuck.
 
+JSON HYGIENE (when you emit the decision)
+- targetUtterance.surface and referenceText contain ONLY the ${target} written form
+  (e.g. Hanzi for Mandarin) — no romanization, no ${l1}, no notes. Put romanization in
+  targetUtterance.pinyin and any explanation in teachingNote.
+- masteryDelta entries are {componentId, change} with change one of strengthen,
+  partial, or weaken — or {logError:{unit, expected, produced}}.
+
 Respond with ONLY the JSON for the requested function. No prose outside the JSON.`;
 }
 

@@ -26,7 +26,7 @@ const STRENGTH_STEP: Record<MasteryChange, number> = {
   weaken: -0.2,
 };
 
-const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
+const clamp01 = (n: number): number => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0);
 
 /**
  * Expanding interval: stronger blocks come due later. Ranges ~5min (cold) to ~18h
@@ -48,8 +48,10 @@ export function applyChange(
   change: MasteryChange,
   now: number,
 ): MasteryRecord {
-  const prevStrength = rec?.strength ?? 0;
-  const strength = clamp01(prevStrength + STRENGTH_STEP[change]);
+  const prev = rec?.strength;
+  const prevStrength = typeof prev === 'number' && Number.isFinite(prev) ? prev : 0;
+  const step = STRENGTH_STEP[change] ?? 0; // unknown change from the brain -> no-op
+  const strength = clamp01(prevStrength + step);
   return { componentId, strength, lastSeen: now, dueAt: now + dueIntervalMs(strength) };
 }
 

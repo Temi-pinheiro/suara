@@ -22,6 +22,7 @@ import {
   FEEDBACK_SCHEMA,
   TURN_DECISION_SCHEMA,
 } from '@suara/core';
+import { stripRomanization } from './mock';
 import type {
   Feedback,
   LLMProvider,
@@ -179,6 +180,9 @@ export class AnthropicProvider implements LLMProvider {
     });
 
     const decision = assertTurnDecision(this.toolUseInput(res, DECIDE_TURN_TOOL.name));
+    // referenceText feeds ASR/pronunciation scoring — pin it to the bare target script
+    // (derived from the surface) so a chatty brain can't contaminate the reference.
+    decision.referenceText = stripRomanization(decision.targetUtterance.surface);
     assertNoForbiddenPhrases(`${decision.englishSetup} ${decision.teachingNote} ${decision.reassurance ?? ''}`);
     return decision;
   }
