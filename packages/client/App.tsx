@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HttpSessionApi } from './src/api/httpApi';
 import { MockSessionApi } from './src/api/mockApi';
 import type { SessionApi } from './src/api/types';
@@ -16,9 +17,9 @@ const api: SessionApi = apiUrl
 export default function App() {
   const audio = useExpoAudioIO();
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="auto" />
       <LessonScreen api={api} audio={audio} />
-    </>
+    </SafeAreaProvider>
   );
 }

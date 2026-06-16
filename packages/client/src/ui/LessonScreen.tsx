@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SessionApi } from '../api/types';
 import type { AudioIO } from '../audio/types';
 import { useLesson } from '../lesson/useLesson';
