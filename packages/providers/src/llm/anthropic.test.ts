@@ -42,6 +42,20 @@ function toolUseReply(name: string, input: unknown): AnthropicResponse {
   return { content: [{ type: 'tool_use', id: 'toolu_1', name, input }], stop_reason: 'tool_use' };
 }
 
+/** A mock client that returns a queued reply per call (repeats the last one if exhausted). */
+function sequencedClient(replies: AnthropicResponse[]) {
+  const calls: AnthropicCreateParams[] = [];
+  const client: AnthropicClientLike = {
+    messages: {
+      create: async (params) => {
+        calls.push(params);
+        return replies[Math.min(calls.length - 1, replies.length - 1)]!;
+      },
+    },
+  };
+  return { client, calls };
+}
+
 const validDecision = {
   action: 'introduce',
   focusComponentId: 'c01',
@@ -83,12 +97,28 @@ describe('AnthropicProvider.decideTurn', () => {
     expect(call.system[0]!.cache_control).toBeUndefined();
   });
 
-  it('throws if the brain emits a forbidden MT phrase', async () => {
+  it('throws if the brain keeps emitting a forbidden MT phrase', async () => {
     const bad = { ...validDecision, teachingNote: 'Try to memorize this one.' };
     const { client } = mockClient(toolUseReply('emit_turn_decision', bad));
     const provider = new AnthropicProvider({ client, config: cmnConfig });
 
     await expect(provider.decideTurn(ctx)).rejects.toThrow(/forbidden persona phrase/);
+  });
+
+  it('regenerates with a nudge and recovers when a draft trips the persona gate', async () => {
+    const bad = { ...validDecision, teachingNote: 'Try to memorize this one.' };
+    const { client, calls } = sequencedClient([
+      toolUseReply('emit_turn_decision', bad),
+      toolUseReply('emit_turn_decision', validDecision),
+    ]);
+    const provider = new AnthropicProvider({ client, config: cmnConfig });
+
+    const decision = await provider.decideTurn(ctx);
+
+    expect(decision.teachingNote).toBe('我 is the subject slot.'); // the clean retry won
+    expect(calls).toHaveLength(2); // one slip, one regeneration
+    // the retry names the offending word back to the model so it rephrases it out
+    expect(calls[1]!.messages[0]!.content).toMatch(/forbidden word "memorize"/);
   });
 
   it('throws if no tool_use block is returned', async () => {

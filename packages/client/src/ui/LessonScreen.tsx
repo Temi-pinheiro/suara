@@ -1,4 +1,4 @@
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import type { SessionApi } from '../api/types';
 import type { AudioIO } from '../audio/types';
 import { useLesson } from '../lesson/useLesson';
@@ -15,7 +15,7 @@ interface Props {
  * warm cue. Minimal, voice-first, fully operable by the single speak control.
  */
 export function LessonScreen({ api, audio }: Props) {
-  const { state, speak, stopAndSubmit } = useLesson(api, audio);
+  const { state, speak, stopAndSubmit, reload } = useLesson(api, audio);
   const { phase, prompt, attempt } = state;
 
   return (
@@ -32,11 +32,18 @@ export function LessonScreen({ api, audio }: Props) {
 
         {attempt?.toneFocus && phase === 'feedback' && <ToneCue tone={attempt.toneFocus} />}
 
-        {state.error && <Text style={styles.error}>Something hiccupped: {state.error}</Text>}
+        {phase === 'error' && (
+          <View style={styles.errorBox}>
+            <Text style={styles.error}>Something hiccupped: {state.error}</Text>
+            <Pressable accessibilityRole="button" onPress={reload} style={styles.retry}>
+              <Text style={styles.retryLabel}>Try again</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <View style={styles.footer}>
-        <SpeakButton phase={phase} onSpeak={speak} onStop={stopAndSubmit} />
+        {phase !== 'error' && <SpeakButton phase={phase} onSpeak={speak} onStop={stopAndSubmit} />}
       </View>
     </SafeAreaView>
   );
@@ -47,6 +54,9 @@ const styles = StyleSheet.create({
   body: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', gap: 12 },
   setup: { fontSize: 22, lineHeight: 30, textAlign: 'center', color: '#2B2B2B' },
   correction: { fontSize: 18, textAlign: 'center', color: '#3A6EA5', marginTop: 12 },
-  error: { fontSize: 14, color: '#B5524B', marginTop: 12 },
+  errorBox: { alignItems: 'center', gap: 16 },
+  error: { fontSize: 14, color: '#B5524B', marginTop: 12, textAlign: 'center' },
+  retry: { paddingVertical: 12, paddingHorizontal: 28, borderRadius: 24, backgroundColor: '#3A6EA5' },
+  retryLabel: { color: 'white', fontSize: 16, fontWeight: '600' },
   footer: { alignItems: 'center', paddingBottom: 48 },
 });

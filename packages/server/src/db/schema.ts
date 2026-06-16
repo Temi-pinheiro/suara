@@ -65,7 +65,9 @@ export const mastery = pgTable(
     lastSeen: bigint('last_seen', { mode: 'number' }).notNull(),
     dueAt: bigint('due_at', { mode: 'number' }).notNull(),
   },
-  (t) => ({ pk: primaryKey({ columns: [t.userId, t.componentId] }) }),
+  // lang is part of the key: a learner can hold the same component id under
+  // different languages without collision.
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.lang, t.componentId] }) }),
 );
 
 export const turns = pgTable('turns', {

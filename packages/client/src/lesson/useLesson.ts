@@ -12,6 +12,9 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
   const [state, dispatch] = useReducer(lessonReducer, initialLessonState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  // Re-entrancy guard: dispatch is async, so the phase guards alone don't stop a
+  // rapid double-tap from firing an action twice (double recorder, double submit).
+  const busy = useRef(false);
 
   const load = useCallback(async () => {
     dispatch({ type: 'LOAD' });
@@ -27,14 +30,22 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
   }, [api, audio]);
 
   const speak = useCallback(async () => {
-    if (stateRef.current.phase !== 'awaiting') return;
-    dispatch({ type: 'START_RECORDING' });
-    await audio.startRecording();
+    if (busy.current || stateRef.current.phase !== 'awaiting') return;
+    busy.current = true;
+    try {
+      dispatch({ type: 'START_RECORDING' });
+      await audio.startRecording();
+    } catch (e) {
+      dispatch({ type: 'FAIL', error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      busy.current = false;
+    }
   }, [audio]);
 
   const stopAndSubmit = useCallback(async () => {
     const current = stateRef.current;
-    if (current.phase !== 'recording' || !current.prompt) return;
+    if (busy.current || current.phase !== 'recording' || !current.prompt) return;
+    busy.current = true;
     const { turnId } = current.prompt;
     try {
       const rec = await audio.stopRecording();
@@ -46,6 +57,8 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
       if (result.decision !== 'rebuild') await load();
     } catch (e) {
       dispatch({ type: 'FAIL', error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      busy.current = false;
     }
   }, [api, audio, load]);
 

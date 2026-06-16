@@ -10,6 +10,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
   AnthropicProvider,
+  AzureProvider,
   CoachedPronunciationProvider,
   ElevenLabsTTSProvider,
   ScribeASRProvider,
@@ -29,6 +30,8 @@ export interface ServerEnv {
   ELEVENLABS_API_KEY?: string;
   SPEECHSUPER_APP_KEY?: string;
   SPEECHSUPER_SECRET?: string;
+  AZURE_SPEECH_KEY?: string;
+  AZURE_REGION?: string;
   DATABASE_URL?: string;
   R2_ACCOUNT_ID?: string;
   R2_ACCESS_KEY_ID?: string;
@@ -59,9 +62,18 @@ function buildAsr(env: ServerEnv): ASRProvider {
 }
 
 function buildPronunciation(config: LanguageConfig, env: ServerEnv): PronunciationProvider {
-  // Routed by MODE, never by language. coached needs no vendor; tone/segmental score.
+  // Routed by MODE (never by language); within a scored mode, the concrete vendor is
+  // chosen by config.pronunciation.provider — so picking Azure (self-serve) vs
+  // SpeechSuper is a config change, zero core diffs.
   if (config.pronunciation.mode === 'coached') return new CoachedPronunciationProvider();
-  // tone (cmn) + segmental (jpn/kor) via SpeechSuper. Azure (esp. hi-IN) lands next.
+
+  if (config.pronunciation.provider === 'azure') {
+    return new AzureProvider({
+      speechKey: required(env, 'AZURE_SPEECH_KEY'),
+      region: required(env, 'AZURE_REGION'),
+    });
+  }
+  // Default scored vendor: SpeechSuper (richest tone detail for zh-CN).
   return new SpeechSuperProvider({
     appKey: required(env, 'SPEECHSUPER_APP_KEY'),
     secretKey: required(env, 'SPEECHSUPER_SECRET'),

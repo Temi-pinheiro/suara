@@ -1,0 +1,2 @@
+ALTER TABLE "mastery" DROP CONSTRAINT "mastery_user_id_component_id_pk";--> statement-breakpoint
+ALTER TABLE "mastery" ADD CONSTRAINT "mastery_user_id_lang_component_id_pk" PRIMARY KEY("user_id","lang","component_id");

@@ -26,7 +26,7 @@ const STRENGTH_STEP: Record<MasteryChange, number> = {
   weaken: -0.2,
 };
 
-const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
+const clamp01 = (n: number): number => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0);
 
 /**
  * Expanding interval: stronger blocks come due later. Ranges ~5min (cold) to ~18h
@@ -48,8 +48,10 @@ export function applyChange(
   change: MasteryChange,
   now: number,
 ): MasteryRecord {
-  const prevStrength = rec?.strength ?? 0;
-  const strength = clamp01(prevStrength + STRENGTH_STEP[change]);
+  const prev = rec?.strength;
+  const prevStrength = typeof prev === 'number' && Number.isFinite(prev) ? prev : 0;
+  const step = STRENGTH_STEP[change] ?? 0; // unknown change from the brain -> no-op
+  const strength = clamp01(prevStrength + step);
   return { componentId, strength, lastSeen: now, dueAt: now + dueIntervalMs(strength) };
 }
 
@@ -72,6 +74,7 @@ export function applyTurnOutcome(
 ): LearnerState {
   const mastery: Record<string, MasteryRecord> = { ...state.mastery };
 
+  let focusTouched = false;
   for (const delta of p.masteryDelta) {
     if (isMasteryError(delta)) continue; // error grain is persisted as TurnRecord detail
     mastery[delta.componentId] = applyChange(
@@ -80,12 +83,14 @@ export function applyTurnOutcome(
       delta.change,
       now,
     );
+    if (delta.componentId === p.focusComponentId) focusTouched = true;
   }
 
-  // The focus component is always touched, even if the brain omitted a delta.
-  if (!mastery[p.focusComponentId]) {
+  // The focus block was just practiced — always refresh its schedule (lastSeen/dueAt),
+  // even if it already had a record and the brain omitted a delta for it.
+  if (!focusTouched) {
     mastery[p.focusComponentId] = applyChange(
-      undefined,
+      mastery[p.focusComponentId],
       p.focusComponentId,
       p.outcome === 'advance' ? 'strengthen' : 'partial',
       now,

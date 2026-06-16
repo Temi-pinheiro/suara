@@ -6,7 +6,7 @@ import {
   isDue,
   selectDueTargets,
 } from './index';
-import type { LearnerState } from '../types';
+import type { LearnerState, MasteryChange } from '../types';
 
 const NOW = 1_700_000_000_000;
 
@@ -31,6 +31,23 @@ describe('srs scheduling', () => {
     const rec = applyChange({ componentId: 'c01', strength: 0.1, lastSeen: 0, dueAt: 0 }, 'c01', 'weaken', NOW);
     expect(rec.strength).toBe(0);
   });
+
+  it('a bad change value never yields NaN strength/dueAt (brain robustness)', () => {
+    const rec = applyChange(undefined, 'c01', 'bogus' as MasteryChange, NOW);
+    expect(rec.strength).toBe(0);
+    expect(Number.isFinite(rec.dueAt)).toBe(true);
+  });
+
+  it('recovers from a corrupt prior strength', () => {
+    const rec = applyChange(
+      { componentId: 'c01', strength: Number.NaN, lastSeen: 0, dueAt: 0 },
+      'c01',
+      'strengthen',
+      NOW,
+    );
+    expect(Number.isFinite(rec.strength)).toBe(true);
+    expect(rec.strength).toBeGreaterThan(0);
+  });
 });
 
 describe('applyTurnOutcome', () => {
@@ -53,6 +70,18 @@ describe('applyTurnOutcome', () => {
     );
     expect(next.known).not.toContain('c01');
     expect(next.turnIndex).toBe(1);
+  });
+
+  it('refreshes the focus schedule even when the brain omits its delta', () => {
+    const stale = { componentId: 'c01', strength: 0.3, lastSeen: NOW - 9_000_000, dueAt: NOW - 1000 };
+    const state = baseState({ known: ['c01'], mastery: { c01: stale } });
+    const next = applyTurnOutcome(
+      state,
+      { focusComponentId: 'c01', masteryDelta: [{ componentId: 'c02', change: 'strengthen' }], outcome: 'advance' },
+      NOW,
+    );
+    expect(next.mastery.c01?.lastSeen).toBe(NOW); // just practiced -> rescheduled
+    expect(next.mastery.c01?.dueAt).toBeGreaterThan(NOW);
   });
 
   it('ignores logError deltas for strength but advances normally', () => {

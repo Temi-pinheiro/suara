@@ -16,12 +16,14 @@
 
 import {
   assertFeedback,
-  assertNoForbiddenPhrases,
   assertTurnDecision,
   buildSystemPrompt,
   FEEDBACK_SCHEMA,
+  findForbiddenPhrase,
+  FORBIDDEN_PERSONA_PHRASES,
   TURN_DECISION_SCHEMA,
 } from '@suara/core';
+import { stripRomanization } from './mock';
 import type {
   Feedback,
   LLMProvider,
@@ -105,6 +107,14 @@ const FEEDBACK_TOOL: AnthropicToolDef = {
   input_schema: FEEDBACK_SCHEMA,
 };
 
+/**
+ * How many times to regenerate when the brain's copy trips the persona gate.
+ * The model is nondeterministic, so a one-off slip (e.g. it says "remember")
+ * almost never repeats once we name the offending word back to it. Rejection
+ * sampling keeps the MT gate strict without crashing a live turn over a fluke.
+ */
+const MAX_PERSONA_RETRIES = 2;
+
 /** A miss worth the stronger model: low overall or any weak syllable. */
 function isMiss(pronScore: PronScore | null): boolean {
   if (!pronScore) return false; // coached: no score -> routine model
@@ -160,51 +170,85 @@ export class AnthropicProvider implements LLMProvider {
     return block.input;
   }
 
-  async decideTurn(ctx: TurnContext): Promise<TurnDecision> {
-    const res = await this.client.messages.create({
-      model: this.routineModel,
-      max_tokens: this.maxTokens,
-      system: this.buildSystem(),
-      tools: [DECIDE_TURN_TOOL],
-      tool_choice: { type: 'tool', name: DECIDE_TURN_TOOL.name },
-      messages: [
-        {
-          role: 'user',
-          content:
-            'Plan the next turn. Current TurnContext (JSON):\n\n' +
-            `${JSON.stringify(ctx, null, 2)}\n\n` +
-            'Call emit_turn_decision. Use ONLY blocks from availableBlocks / known.',
-        },
-      ],
-    });
+  /** A retry instruction that names the offending word so the model rephrases it out. */
+  private personaNudge(baseContent: string, phrase: string): string {
+    return (
+      `${baseContent}\n\nYour previous reply used the forbidden word "${phrase}". These words ` +
+      `must NEVER appear in any copy you write: ${FORBIDDEN_PERSONA_PHRASES.join(', ')}. ` +
+      'Re-emit the JSON with the same meaning and warmth, rephrased so none of them appear.'
+    );
+  }
 
-    const decision = assertTurnDecision(this.toolUseInput(res, DECIDE_TURN_TOOL.name));
-    assertNoForbiddenPhrases(`${decision.englishSetup} ${decision.teachingNote} ${decision.reassurance ?? ''}`);
-    return decision;
+  /**
+   * Generate a tool call, validate it, and run the persona gate. If the gate trips,
+   * regenerate up to MAX_PERSONA_RETRIES times — naming the offending word back to the
+   * model — before giving up. `build` returns the validated value and the copy to gate.
+   */
+  private async generateGated<T>(
+    baseContent: string,
+    build: (content: string) => Promise<{ value: T; copy: string }>,
+  ): Promise<T> {
+    let content = baseContent;
+    let violation: string | null = null;
+    for (let attempt = 0; attempt <= MAX_PERSONA_RETRIES; attempt++) {
+      const { value, copy } = await build(content);
+      violation = findForbiddenPhrase(copy);
+      if (!violation) return value;
+      content = this.personaNudge(baseContent, violation);
+    }
+    throw new Error(
+      `AnthropicProvider: brain kept emitting forbidden persona phrase "${violation}" ` +
+        `after ${MAX_PERSONA_RETRIES + 1} attempts`,
+    );
+  }
+
+  async decideTurn(ctx: TurnContext): Promise<TurnDecision> {
+    const baseContent =
+      'Plan the next turn. Current TurnContext (JSON):\n\n' +
+      `${JSON.stringify(ctx, null, 2)}\n\n` +
+      'Call emit_turn_decision. Use ONLY blocks from availableBlocks / known.';
+
+    return this.generateGated<TurnDecision>(baseContent, async (content) => {
+      const res = await this.client.messages.create({
+        model: this.routineModel,
+        max_tokens: this.maxTokens,
+        system: this.buildSystem(),
+        tools: [DECIDE_TURN_TOOL],
+        tool_choice: { type: 'tool', name: DECIDE_TURN_TOOL.name },
+        messages: [{ role: 'user', content }],
+      });
+
+      const decision = assertTurnDecision(this.toolUseInput(res, DECIDE_TURN_TOOL.name));
+      // Keep the target script clean (no romanization/English) and pin referenceText to
+      // it, so the spoken/displayed target and the scoring reference can't diverge.
+      decision.targetUtterance.surface = stripRomanization(decision.targetUtterance.surface);
+      decision.referenceText = stripRomanization(decision.targetUtterance.surface);
+      const copy = `${decision.englishSetup} ${decision.teachingNote} ${decision.reassurance ?? ''}`;
+      return { value: decision, copy };
+    });
   }
 
   async interpretResponse(r: ScoredResponse, ctx: TurnContext): Promise<Feedback> {
     const model = isMiss(r.pronScore) ? this.strongModel : this.routineModel;
-    const res = await this.client.messages.create({
-      model,
-      max_tokens: this.maxTokens,
-      system: this.buildSystem(),
-      tools: [FEEDBACK_TOOL],
-      tool_choice: { type: 'tool', name: FEEDBACK_TOOL.name },
-      messages: [
-        {
-          role: 'user',
-          content:
-            'Interpret the learner attempt and respond with feedback. ' +
-            'Scored response and original context (JSON):\n\n' +
-            `${JSON.stringify({ scored: r, context: ctx }, null, 2)}\n\n` +
-            'Call emit_feedback. One warm cue, then decide advance/rebuild/ease.',
-        },
-      ],
-    });
+    const baseContent =
+      'Interpret the learner attempt and respond with feedback. ' +
+      'Scored response and original context (JSON):\n\n' +
+      `${JSON.stringify({ scored: r, context: ctx }, null, 2)}\n\n` +
+      'Call emit_feedback. One warm cue, then decide advance/rebuild/ease.';
 
-    const feedback = assertFeedback(this.toolUseInput(res, FEEDBACK_TOOL.name));
-    assertNoForbiddenPhrases(`${feedback.correction} ${feedback.nextPrompt ?? ''} ${feedback.revealNote ?? ''}`);
-    return feedback;
+    return this.generateGated<Feedback>(baseContent, async (content) => {
+      const res = await this.client.messages.create({
+        model,
+        max_tokens: this.maxTokens,
+        system: this.buildSystem(),
+        tools: [FEEDBACK_TOOL],
+        tool_choice: { type: 'tool', name: FEEDBACK_TOOL.name },
+        messages: [{ role: 'user', content }],
+      });
+
+      const feedback = assertFeedback(this.toolUseInput(res, FEEDBACK_TOOL.name));
+      const copy = `${feedback.correction} ${feedback.nextPrompt ?? ''} ${feedback.revealNote ?? ''}`;
+      return { value: feedback, copy };
+    });
   }
 }

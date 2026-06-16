@@ -1,8 +1,10 @@
 # Suara — Build Progress
 
-> Snapshot as of 2026-06-15. Branch: `phase-0-skeleton`.
-> **Status: Phase 0 + Phase 1 complete — 49 tests green, all typechecks clean.**
-> Pairs with `PLAN.md` (spec) and `design-pass.md` (decisions).
+> Snapshot as of 2026-06-16. Branch: `phase-0-skeleton`.
+> **Status: Phase 0 + Phase 1 complete and VALIDATED LIVE — 60 tests green,
+> typechecks clean. A real Mandarin turn runs end-to-end against every provider +
+> Supabase + R2 (`pnpm turn`), with construct-first recombination and gentle tone
+> coaching.** Pairs with `PLAN.md` (spec) and `design-pass.md` (decisions).
 
 ---
 
@@ -43,7 +45,7 @@ imports zero provider/infra SDKs** (verified).
 | `LLMProvider` (brain) | **AnthropicProvider** — Haiku/Opus tiering, prompt caching, forced tool-use | MockLLM |
 | `TTSProvider` | **ElevenLabsTTSProvider** + content-hash cache over R2 | MockTTS |
 | `ASRProvider` | **ScribeASRProvider** (ElevenLabs Scribe) | MockASR |
-| `PronunciationProvider` | **SpeechSuperProvider** (tone) · **CoachedProvider** (no-op, Indonesian) | MockPronunciation |
+| `PronunciationProvider` | **AzureProvider** (self-serve, zh-CN tone + segmental) · **SpeechSuperProvider** (richest tone) · **CoachedProvider** (no-op, Indonesian) — vendor chosen by `pronunciation.provider` | MockPronunciation |
 | `LearnerStore` | **DrizzleLearnerStore** (Supabase Postgres) | InMemoryLearnerStore |
 | object cache | **R2ObjectStore** (`@aws-sdk/client-s3`) | InMemoryObjectStore |
 
@@ -85,11 +87,21 @@ POST attempt → completeTurn: ASR ∥ Pronunciation → brain.interpretResponse
 
 **NOT yet exercised live** (by design — no live calls in CI):
 - Real vendor APIs against real keys (Anthropic/ElevenLabs/SpeechSuper).
-- `DrizzleLearnerStore` / `R2ObjectStore` against a real Supabase DB / R2 bucket
-  (typechecked only; no migrations run yet).
 - The Expo app on a device/simulator (verified via tests + full RN typecheck).
 - **SpeechSuper `coreType` + response field names** — structurally faithful, but
-  confirm against your account; mapping is isolated + tested for easy tuning.
+  unverified (keys require waiting for their team). **Azure is the self-serve
+  alternative and is what the live turn uses** — `pronunciation: { mode: 'tone',
+  provider: 'azure' }`, zero core diffs. (Minor: Azure's per-syllable `unit` labels
+  come back blank in the live output — scores + coaching are correct; label mapping
+  is a small follow-up.)
+
+**Validated live** (`pnpm smoke`, `pnpm turn`):
+- All six services authenticate (`pnpm smoke`): Anthropic, ElevenLabs TTS + Scribe
+  ASR, Azure, Supabase, R2.
+- DB migrated (`pnpm db:migrate`) + curriculum seeded (`pnpm db:seed`, 30 rows).
+- A full turn runs end-to-end (`pnpm turn`): real brain picks/recombines blocks
+  (`我` → `我要茶`), Azure scores tones, the brain coaches contour, and mastery
+  advances in Supabase (`known: ['c01','c02']`).
 
 ---
 
@@ -97,16 +109,26 @@ POST attempt → completeTurn: ASR ∥ Pronunciation → brain.interpretResponse
 
 ```bash
 pnpm install
-pnpm test            # 49 unit/integration tests (mocks; no live calls)
+pnpm test            # 60 unit/integration tests (mocks; no live calls — also CI)
 pnpm test:turn       # golden-path turn lifecycle gate
 pnpm typecheck       # engine + providers + curriculum + server
 pnpm --filter @suara/client typecheck   # RN/Expo client
 pnpm --filter @suara/client start        # Expo dev (runs the standalone mock lesson)
 ```
 
-Real providers activate when env keys are present (see `.env.example`): the client's
-`MockSessionApi` swaps for an HTTP adapter to the server handlers; `prod.ts` builds
-the real brain + TTS/ASR/pronunciation + Drizzle stores from env.
+CI (`.github/workflows/ci.yml`) runs the typechecks + tests on every push/PR — all
+on mocks, no keys.
+
+With real keys in `.env` (see `.env.example`):
+
+```bash
+pnpm smoke           # ping every provider (auth/connectivity), no secrets printed
+pnpm db:migrate      # apply the schema to Supabase Postgres
+pnpm db:seed         # load the cmn curriculum into `components`
+pnpm turn [user]     # run one real end-to-end turn (writes real rows + audio)
+```
+
+`prod.ts` builds the real brain + TTS/ASR/pronunciation + Drizzle stores from env.
 
 ---
 
@@ -114,10 +136,11 @@ the real brain + TTS/ASR/pronunciation + Drizzle stores from env.
 
 - **Phase 0 — Skeleton & contracts:** ✅ done.
 - **Phase 1 — Mandarin vertical slice:** ✅ all providers + brain + server + client +
-  tone scaffold built and tested on mocks.
-- **Remaining glue to a live demo** (small): client HTTP `SessionApi` adapter →
-  server handlers; Drizzle migrations + Supabase project; pick the serverless shell
-  (Supabase Edge Functions); seed the `components` table; smoke-test with real keys.
+  tone scaffold, tested on mocks **and validated live end-to-end** (`pnpm turn`).
+- **Remaining glue to a phone-usable demo:** client HTTP `SessionApi` adapter →
+  server handlers; a serverless entry (Supabase Edge Function) around
+  `createTurnHandlerDeps`; Expo recording → 16 kHz WAV (the `pcmToWav` util exists).
+  (DB migrations + curriculum seed + live smoke are ✅ done.)
 - **Phase 2 — Pedagogy hardening (next):** full ~150–250-component expert-reviewed
   Mandarin graph; optional classmates (turn on the existing schema field);
   `gen:audio` batch pre-generation pipeline → R2; cost instrumentation.
@@ -126,13 +149,8 @@ the real brain + TTS/ASR/pronunciation + Drizzle stores from env.
 
 ---
 
-## 7. Commits (this branch)
+## 7. History
 
-```
-3b39505 Phase 1: real vendor providers — ElevenLabs TTS+R2, Scribe ASR, SpeechSuper
-a7d9f21 Phase 1: server composition root + two-phase turn handlers + Drizzle store
-bc283c3 Phase 1: Expo voice client + audio-native Mandarin tone scaffold
-8b85b22 Phase 1: AnthropicProvider (brain) with tiering, caching, tool-use
-9b693cb Phase 0: monorepo skeleton, core engine, provider mocks, golden-path test
-8263561 Apply design-pass decisions to CLAUDE.md and PLAN.md
-```
+See `git log --oneline main..phase-0-skeleton` for the full commit history (design
+pass → Phase 0 skeleton → Phase 1 brain/client/server/providers → live validation +
+hardening fixes found by the first real turn).
