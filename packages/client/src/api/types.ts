@@ -12,7 +12,12 @@ export interface PromptPacket {
   /** L1 setup — spoken, and shown as an optional visual aid */
   englishSetup: string;
   setupAudioUrl: string;
-  targetUtterance: { surface: string; pinyin?: string; expectedTones?: string };
+  /**
+   * The target answer — construct-first, so the real server OMITS this before the
+   * attempt (the learner must build it). The mock provides it for convenience; the
+   * UI must not reveal it pre-attempt.
+   */
+  targetUtterance?: { surface: string; pinyin?: string; expectedTones?: string };
   /** optional simulated classmate attempt (off by default in Phase 1) */
   classmateAudioUrl?: string;
 }

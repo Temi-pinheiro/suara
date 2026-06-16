@@ -1,5 +1,38 @@
 import { Audio } from 'expo-av';
+import { Platform } from 'react-native';
 import type { AudioBlobRef, AudioIO } from './types';
+
+/**
+ * 16 kHz mono capture. iOS records LinearPCM WAV, which Azure Pronunciation
+ * Assessment accepts directly. Android can't emit WAV via MediaRecorder, so it
+ * records AAC/m4a — fine for Scribe ASR, but Azure tone scoring on Android needs a
+ * server-side transcode (TODO). iOS is the Phase 1 target.
+ */
+const RECORDING_OPTIONS: Audio.RecordingOptions = {
+  isMeteringEnabled: false,
+  ios: {
+    extension: '.wav',
+    outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+    audioQuality: Audio.IOSAudioQuality.HIGH,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 256000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  android: {
+    extension: '.m4a',
+    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+    audioEncoder: Audio.AndroidAudioEncoder.AAC,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 128000,
+  },
+  web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
+};
+
+const RECORDING_MIME = Platform.select({ ios: 'audio/wav', android: 'audio/mp4', default: 'audio/webm' });
 
 /**
  * Device AudioIO via expo-av. Mic capture is self-paced — startRecording/
@@ -40,7 +73,7 @@ export class ExpoAudioIO implements AudioIO {
   async startRecording(): Promise<void> {
     await this.ensurePermission();
     const recording = new Audio.Recording();
-    await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+    await recording.prepareToRecordAsync(RECORDING_OPTIONS);
     await recording.startAsync();
     this.recording = recording;
   }
@@ -51,6 +84,6 @@ export class ExpoAudioIO implements AudioIO {
     const uri = this.recording.getURI();
     this.recording = null;
     if (!uri) throw new Error('Recording produced no URI');
-    return { uri, mimeType: 'audio/m4a', durationMs: status.durationMillis };
+    return { uri, mimeType: RECORDING_MIME, durationMs: status.durationMillis };
   }
 }

@@ -126,7 +126,12 @@ pnpm smoke           # ping every provider (auth/connectivity), no secrets print
 pnpm db:migrate      # apply the schema to Supabase Postgres
 pnpm db:seed         # load the cmn curriculum into `components`
 pnpm turn [user]     # run one real end-to-end turn (writes real rows + audio)
+pnpm serve           # local HTTP backend on :8787 (real providers + DB)
 ```
+
+Run the app against the live backend: `pnpm serve`, then start the client with
+`EXPO_PUBLIC_SUARA_API=http://localhost:8787 pnpm --filter @suara/client start`
+(the client falls back to the standalone mock lesson when that var is unset).
 
 `prod.ts` builds the real brain + TTS/ASR/pronunciation + Drizzle stores from env.
 
@@ -137,10 +142,11 @@ pnpm turn [user]     # run one real end-to-end turn (writes real rows + audio)
 - **Phase 0 — Skeleton & contracts:** ✅ done.
 - **Phase 1 — Mandarin vertical slice:** ✅ all providers + brain + server + client +
   tone scaffold, tested on mocks **and validated live end-to-end** (`pnpm turn`).
-- **Remaining glue to a phone-usable demo:** client HTTP `SessionApi` adapter →
-  server handlers; a serverless entry (Supabase Edge Function) around
-  `createTurnHandlerDeps`; Expo recording → 16 kHz WAV (the `pcmToWav` util exists).
-  (DB migrations + curriculum seed + live smoke are ✅ done.)
+- **App wiring:** ✅ framework-agnostic HTTP entry (`createHttpHandler`, Web
+  Request/Response) + local dev server (`pnpm serve`); client `HttpSessionApi` →
+  those endpoints (uploads recorded audio); Expo records 16 kHz WAV on iOS for Azure.
+  Remaining: deploy the handler to a Supabase Edge Function + real Supabase auth
+  (the `authenticate` hook is injected); Android needs a WAV transcode for Azure.
 - **Phase 2 — Pedagogy hardening (next):** full ~150–250-component expert-reviewed
   Mandarin graph; optional classmates (turn on the existing schema field);
   `gen:audio` batch pre-generation pipeline → R2; cost instrumentation.

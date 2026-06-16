@@ -8,6 +8,7 @@ export * from './compose';
 export * from './prod';
 export * from './turn/handlers';
 export * from './turn/pending';
+export * from './http/handler';
 export * from './db/client';
 export * from './db/schema';
 export * from './db/learnerStore';
