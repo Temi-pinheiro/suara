@@ -116,8 +116,8 @@ export class DrizzleLearnerStore implements LearnerStore {
             dueAt: rec.dueAt,
           })
           .onConflictDoUpdate({
-            target: [mastery.userId, mastery.componentId],
-            set: { lang, strength: rec.strength, known: isKnown, lastSeen: rec.lastSeen, dueAt: rec.dueAt },
+            target: [mastery.userId, mastery.lang, mastery.componentId],
+            set: { strength: rec.strength, known: isKnown, lastSeen: rec.lastSeen, dueAt: rec.dueAt },
           });
       }
     });

@@ -23,10 +23,11 @@ export class DrizzlePendingTurnStore implements PendingTurnStore {
   }
 
   async take(turnId: string): Promise<PendingTurn | null> {
-    const rows = await this.db.select().from(pendingTurns).where(eq(pendingTurns.id, turnId));
+    // Atomic single-use: delete-returning so two concurrent attempts on one turnId
+    // can't both read the row and double-process the recording.
+    const rows = await this.db.delete(pendingTurns).where(eq(pendingTurns.id, turnId)).returning();
     const row = rows[0];
     if (!row) return null;
-    await this.db.delete(pendingTurns).where(eq(pendingTurns.id, turnId));
     return {
       turnId: row.id,
       userId: row.userId,

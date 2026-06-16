@@ -74,6 +74,7 @@ export function applyTurnOutcome(
 ): LearnerState {
   const mastery: Record<string, MasteryRecord> = { ...state.mastery };
 
+  let focusTouched = false;
   for (const delta of p.masteryDelta) {
     if (isMasteryError(delta)) continue; // error grain is persisted as TurnRecord detail
     mastery[delta.componentId] = applyChange(
@@ -82,12 +83,14 @@ export function applyTurnOutcome(
       delta.change,
       now,
     );
+    if (delta.componentId === p.focusComponentId) focusTouched = true;
   }
 
-  // The focus component is always touched, even if the brain omitted a delta.
-  if (!mastery[p.focusComponentId]) {
+  // The focus block was just practiced — always refresh its schedule (lastSeen/dueAt),
+  // even if it already had a record and the brain omitted a delta for it.
+  if (!focusTouched) {
     mastery[p.focusComponentId] = applyChange(
-      undefined,
+      mastery[p.focusComponentId],
       p.focusComponentId,
       p.outcome === 'advance' ? 'strengthen' : 'partial',
       now,

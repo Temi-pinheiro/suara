@@ -72,6 +72,18 @@ describe('applyTurnOutcome', () => {
     expect(next.turnIndex).toBe(1);
   });
 
+  it('refreshes the focus schedule even when the brain omits its delta', () => {
+    const stale = { componentId: 'c01', strength: 0.3, lastSeen: NOW - 9_000_000, dueAt: NOW - 1000 };
+    const state = baseState({ known: ['c01'], mastery: { c01: stale } });
+    const next = applyTurnOutcome(
+      state,
+      { focusComponentId: 'c01', masteryDelta: [{ componentId: 'c02', change: 'strengthen' }], outcome: 'advance' },
+      NOW,
+    );
+    expect(next.mastery.c01?.lastSeen).toBe(NOW); // just practiced -> rescheduled
+    expect(next.mastery.c01?.dueAt).toBeGreaterThan(NOW);
+  });
+
   it('ignores logError deltas for strength but advances normally', () => {
     const next = applyTurnOutcome(
       baseState(),

@@ -49,6 +49,8 @@ for (const c of comps) {
         glossEn: c.glossEn,
         expectedTones: c.expectedTones ?? null,
         prereqIds: c.prereqIds,
+        introAudioRef: c.introAudioRef?.url ?? null,
+        modelAudioRefs: (c.modelAudioRefs ?? []).map((r) => r.url ?? '').filter(Boolean),
       },
     });
 }

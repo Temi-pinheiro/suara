@@ -137,14 +137,19 @@ function str(o: Record<string, unknown>, k: string): string {
   return v;
 }
 
-/** Assert the brain never spoke a forbidden MT phrase (persona gate). */
-export function assertNoForbiddenPhrases(text: string): void {
+/** Return the first forbidden MT phrase present in `text`, or null if clean. */
+export function findForbiddenPhrase(text: string): string | null {
   const lower = text.toLowerCase();
   for (const phrase of FORBIDDEN_PERSONA_PHRASES) {
-    if (lower.includes(phrase)) {
-      throw new SchemaError(`forbidden persona phrase: "${phrase}"`);
-    }
+    if (lower.includes(phrase)) return phrase;
   }
+  return null;
+}
+
+/** Assert the brain never spoke a forbidden MT phrase (persona gate). */
+export function assertNoForbiddenPhrases(text: string): void {
+  const phrase = findForbiddenPhrase(text);
+  if (phrase) throw new SchemaError(`forbidden persona phrase: "${phrase}"`);
 }
 
 export function assertTurnDecision(x: unknown): TurnDecision {

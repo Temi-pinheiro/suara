@@ -38,8 +38,13 @@ export class R2ObjectStore implements ObjectStore {
     try {
       await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
       return true;
-    } catch {
-      return false;
+    } catch (e) {
+      // Only a genuine "not found" is a cache miss. Auth/network/throttle errors must
+      // propagate — swallowing them would silently re-synthesize + re-PUT every line,
+      // defeating the cost cache (CLAUDE.md §8).
+      const err = e as { name?: string; $metadata?: { httpStatusCode?: number } };
+      if (err?.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) return false;
+      throw e;
     }
   }
 

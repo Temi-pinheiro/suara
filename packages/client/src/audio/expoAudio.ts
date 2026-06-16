@@ -21,17 +21,20 @@ export class ExpoAudioIO implements AudioIO {
 
   async play(url: string): Promise<void> {
     const { sound } = await Audio.Sound.createAsync({ uri: url });
-    await new Promise<void>((resolve, reject) => {
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) {
-          if (status.error) reject(new Error(status.error));
-          return;
-        }
-        if (status.didJustFinish) resolve();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (!status.isLoaded) {
+            if (status.error) reject(new Error(status.error));
+            return;
+          }
+          if (status.didJustFinish) resolve();
+        });
+        sound.playAsync().catch(reject);
       });
-      sound.playAsync().catch(reject);
-    });
-    await sound.unloadAsync();
+    } finally {
+      await sound.unloadAsync(); // always release the native Sound, even on error
+    }
   }
 
   async startRecording(): Promise<void> {
