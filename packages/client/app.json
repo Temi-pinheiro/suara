@@ -5,8 +5,22 @@
     "version": "0.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "android", "web"],
-    "ios": { "supportsTablet": true, "infoPlist": { "NSMicrophoneUsageDescription": "Suara listens to your practice so your tutor can give gentle feedback." } },
-    "android": { "permissions": ["RECORD_AUDIO"] }
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Suara listens to your practice so your tutor can give gentle feedback."
+      },
+      "bundleIdentifier": "com.devinhio.suara"
+    },
+    "android": {
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
+    }
   }
 }
