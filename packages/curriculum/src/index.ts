@@ -5,14 +5,24 @@
 
 import type { Component, LangCode } from '@suara/core';
 import cmnStarter from '../data/cmn-starter.json';
+import jpnStarter from '../data/jpn-starter.json';
+import korStarter from '../data/kor-starter.json';
+import hinStarter from '../data/hin-starter.json';
+import indStarter from '../data/ind-starter.json';
 import { DagCurriculumGraph } from './graph';
 import type { ComponentSeed, LanguageSeed } from './types';
 
 export * from './types';
 export { DagCurriculumGraph } from './graph';
 
+// One seed file per language, shared schema. Adding a language is a data change
+// here — zero diffs in @suara/core (the language-agnostic-engine acceptance test).
 const SEEDS: Partial<Record<LangCode, LanguageSeed>> = {
   cmn: cmnStarter as LanguageSeed,
+  jpn: jpnStarter as LanguageSeed,
+  kor: korStarter as LanguageSeed,
+  hin: hinStarter as LanguageSeed,
+  ind: indStarter as LanguageSeed,
 };
 
 function fromSeed(s: ComponentSeed, lang: LangCode): Component {

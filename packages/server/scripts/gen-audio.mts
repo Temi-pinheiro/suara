@@ -12,7 +12,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { loadComponents } from '@suara/curriculum';
 import { ElevenLabsTTSProvider } from '@suara/providers';
-import type { LangCode, LanguageConfig } from '@suara/core';
+import { isSupportedLang, languageConfig } from '../src/config/languages';
 import { pregenerateComponentAudio } from '../src/audio/pregenerate';
 import { components } from '../src/db/schema';
 import { R2ObjectStore } from '../src/storage/r2';
@@ -32,7 +32,11 @@ function required(key: string): string {
   return v;
 }
 
-const lang = (process.argv[2] ?? 'cmn') as LangCode;
+const lang = process.argv[2] ?? 'cmn';
+if (!isSupportedLang(lang)) {
+  console.error(`usage: pnpm gen:audio [cmn|jpn|kor|hin|ind] — got "${lang}"`);
+  process.exit(1);
+}
 const elevenKey = required('ELEVENLABS_API_KEY');
 
 const voices = (await (await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': elevenKey } })).json())
@@ -48,14 +52,10 @@ const store = new R2ObjectStore({
 });
 const tts = new ElevenLabsTTSProvider({ apiKey: elevenKey, store });
 
-const config: LanguageConfig = {
-  code: lang,
-  l1: 'eng',
-  phonology: 'tonal',
-  toneInventory: ['1', '2', '3', '4', '0'],
-  tts: { provider: 'elevenlabs', targetVoiceId: targetVoice.voice_id, l1VoiceId: targetVoice.voice_id },
-  pronunciation: { mode: 'tone' },
-};
+const config = languageConfig(lang, {
+  targetVoiceId: targetVoice.voice_id,
+  l1VoiceId: targetVoice.voice_id,
+});
 
 const comps = loadComponents(lang);
 console.log(`Pre-generating audio for ${comps.length} ${lang} components (voice "${targetVoice.name}")…`);

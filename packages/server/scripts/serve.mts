@@ -10,8 +10,8 @@
 
 import { createServer } from 'node:http';
 import process from 'node:process';
-import type { LanguageConfig } from '@suara/core';
 import { createTurnHandlerDeps } from '../src/prod';
+import { isSupportedLang, languageConfig } from '../src/config/languages';
 import { createHttpHandler, devHeaderAuth } from '../src/http/handler';
 
 try {
@@ -26,19 +26,18 @@ if (!KEY) {
   process.exit(1);
 }
 
+const LANG = process.env.SUARA_LANG ?? 'cmn';
+if (!isSupportedLang(LANG)) {
+  console.error(`SUARA_LANG="${LANG}" is not one of cmn, jpn, kor, hin, ind`);
+  process.exit(1);
+}
+
 const voicesRes = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': KEY } });
 const voices = (await voicesRes.json()).voices as Array<{ voice_id: string; name: string }>;
 const targetVoice = voices[0]!;
 const l1Voice = voices[1] ?? voices[0]!;
 
-const config: LanguageConfig = {
-  code: 'cmn',
-  l1: 'eng',
-  phonology: 'tonal',
-  toneInventory: ['1', '2', '3', '4', '0'],
-  tts: { provider: 'elevenlabs', targetVoiceId: targetVoice.voice_id, l1VoiceId: l1Voice.voice_id },
-  pronunciation: { mode: 'tone', provider: 'azure' },
-};
+const config = languageConfig(LANG, { targetVoiceId: targetVoice.voice_id, l1VoiceId: l1Voice.voice_id });
 
 const handle = createHttpHandler(createTurnHandlerDeps(config, process.env), { authenticate: devHeaderAuth });
 const PORT = Number(process.env.PORT ?? 8787);
@@ -69,6 +68,9 @@ createServer(async (req, res) => {
     res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
   }
 }).listen(PORT, () => {
-  console.log(`Suara dev server → http://localhost:${PORT}  (cmn · tts voice "${targetVoice.name}" · azure tone)`);
+  console.log(
+    `Suara dev server → http://localhost:${PORT}  (${config.code} · ${config.pronunciation.mode}` +
+      ` · tts voice "${targetVoice.name}")`,
+  );
   console.log('Point the client at it: EXPO_PUBLIC_SUARA_API=http://localhost:' + PORT);
 });

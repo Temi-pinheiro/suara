@@ -7,6 +7,7 @@ import process from 'node:process';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { loadComponents } from '@suara/curriculum';
+import { isSupportedLang } from '../src/config/languages';
 import { components } from '../src/db/schema';
 
 try {
@@ -21,7 +22,11 @@ if (!url) {
   process.exit(1);
 }
 
-const lang = (process.argv[2] ?? 'cmn') as 'cmn';
+const lang = process.argv[2] ?? 'cmn';
+if (!isSupportedLang(lang)) {
+  console.error(`usage: pnpm db:seed [cmn|jpn|kor|hin|ind] — got "${lang}"`);
+  process.exit(1);
+}
 const sql = postgres(url, { ssl: 'require', prepare: false, max: 1 });
 const db = drizzle(sql);
 

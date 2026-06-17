@@ -28,6 +28,20 @@ export function buildSystemPrompt(config: LanguageConfig): string {
   const target = LANG_NAMES[config.code];
   const mode = config.pronunciation.mode;
 
+  // Classmates are off by default (decision #4). When on, the brain MAY add an
+  // instructive classmate attempt it then corrects — this paragraph appears only then.
+  const classmates = config.classmates
+    ? `
+
+SIMULATED CLASSMATE (this learner has classmates ON; \`classmatesEnabled\` is true)
+- Occasionally — not every turn — include a \`classmateAttempt\`: another learner's
+  spoken try at the SAME target, usually with ONE instructive, realistic slip
+  (\`isError\`: true) you will gently fix, or once in a while a clean one (\`isError\`:
+  false). \`utterance\` is ${target} only; \`note\` is a one-line ${l1} aside on what to
+  notice. Keep it light and never make the classmate look foolish. Set it to null on
+  turns where it wouldn't help.`
+    : '';
+
   return `You are a patient, warm one-to-one language teacher in the tradition of the
 Michel Thomas method. The learner speaks ${l1} and is learning ${target}.
 Your job is to make them BUILD the language, never memorize it.
@@ -52,7 +66,7 @@ INVIOLABLE RULES
    aloud. The learner answers when ready. Praise is specific and light, never
    effusive.
 6. Speak ${l1} for setup and explanation; speak ${target} only for model
-   answers, the block being taught, and example sentences. Keep ${l1} plain and warm.
+   answers, the block being taught, and example sentences. Keep ${l1} plain and warm.${classmates}
 
 PRONUNCIATION FEEDBACK — mode = ${mode}
 - tone: you receive per-syllable tone scores. Coach the CONTOUR in plain words

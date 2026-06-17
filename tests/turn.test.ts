@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertNoForbiddenPhrases,
   buildSystemPrompt,
+  planTurn,
   runTurn,
 } from '@suara/core';
 import type { Component, LanguageConfig, TurnDecision, TurnDeps } from '@suara/core';
@@ -42,6 +43,20 @@ const indConfig: LanguageConfig = {
   phonology: 'non-tonal',
   tts: { provider: 'mock', targetVoiceId: 'ind-native', l1VoiceId: 'eng-warm' },
   pronunciation: { mode: 'coached' },
+};
+
+const jpnConfig: LanguageConfig = {
+  code: 'jpn',
+  l1: 'eng',
+  phonology: 'pitch-accent',
+  tts: { provider: 'mock', targetVoiceId: 'jpn-native', l1VoiceId: 'eng-warm' },
+  pronunciation: { mode: 'segmental', provider: 'mock' },
+};
+
+const cmnMatesConfig: LanguageConfig = {
+  ...cmnConfig,
+  tts: { ...cmnConfig.tts, classmateVoiceIds: ['classmate-1'] },
+  classmates: true,
 };
 
 /** A 2-block Indonesian graph: proves a new language = config + graph, no core diff. */
@@ -160,6 +175,56 @@ describe('golden-path turn lifecycle — coached (Indonesian)', () => {
     expect(r.feedback.correction.length).toBeGreaterThan(0);
     expect(/\d/.test(r.feedback.correction)).toBe(false);
     noForbiddenCopy(r.decision, r.feedback.correction, r.feedback.nextPrompt);
+  });
+});
+
+describe('golden-path turn lifecycle — segmental (Japanese)', () => {
+  it('runs the scorer and advances on a real jpn graph, with zero core diffs', async () => {
+    const tts = new MockTTSProvider();
+    const asr = new MockASRProvider();
+    const store = new InMemoryLearnerStore(clock);
+    const llm = new MockLLMProvider();
+    const pron = new MockPronunciationProvider();
+    const graph = loadCurriculum('jpn', clock);
+    const deps: TurnDeps = { config: jpnConfig, llm, tts, asr, pronunciation: pron, store, graph };
+
+    const r = await runTurn(deps, { userId: 'u-jpn', capture: speakTarget, now: clock });
+
+    // smallest unlocked block of the SEEDED Japanese graph
+    expect(r.decision.focusComponentId).toBe('j01');
+    // segmental DOES score (unlike coached) — same engine, different mode
+    expect(pron.callCount).toBe(1);
+    expect(r.pronScore).not.toBeNull();
+    expect(r.transcript).toBe('わたし');
+    expect(r.feedback.decision).toBe('advance');
+    expect(r.state.known).toContain('j01');
+    noForbiddenCopy(r.decision, r.feedback.correction, r.feedback.nextPrompt);
+  });
+});
+
+describe('simulated classmates (opt-in, off by default — decision #4)', () => {
+  function makeDeps(config: LanguageConfig): TurnDeps {
+    return {
+      config,
+      llm: new MockLLMProvider(),
+      tts: new MockTTSProvider(),
+      asr: new MockASRProvider(),
+      pronunciation: new MockPronunciationProvider(),
+      store: new InMemoryLearnerStore(clock),
+      graph: loadCurriculum('cmn', clock),
+    };
+  }
+
+  it('stays silent by default (no attempt, no audio)', async () => {
+    const plan = await planTurn(makeDeps(cmnConfig), 'u-no-mates');
+    expect(plan.decision.classmateAttempt).toBeNull();
+    expect(plan.promptAudio.classmate).toBeUndefined();
+  });
+
+  it('adds a classmate attempt AND synthesizes its audio when the config opts in', async () => {
+    const plan = await planTurn(makeDeps(cmnMatesConfig), 'u-mates');
+    expect(plan.decision.classmateAttempt).not.toBeNull();
+    expect(plan.promptAudio.classmate).toBeDefined();
   });
 });
 

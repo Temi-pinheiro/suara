@@ -30,6 +30,26 @@
     { "id": "c27", "kind": "function", "surface": "没有 (méiyǒu)", "gloss_en": "don't have / there isn't", "expected_tones": "2-3", "prereq_ids": ["c26", "c08"], "recomb_hint": "有 negates with 没 not 不: 我没有咖啡" },
     { "id": "c28", "kind": "function", "surface": "一 (yī)", "gloss_en": "one", "expected_tones": "1", "prereq_ids": ["c16"], "recomb_hint": "number for the measure word; 一 sandhi" },
     { "id": "c29", "kind": "function", "surface": "个 (gè)", "gloss_en": "general measure word", "expected_tones": "4", "prereq_ids": ["c28", "c16"], "recomb_hint": "NUMBER + 个 + noun: 我要一个…; re-read 这个/那个" },
-    { "id": "c30", "kind": "word", "surface": "现在 (xiànzài)", "gloss_en": "now", "expected_tones": "4-4", "prereq_ids": ["c09"], "recomb_hint": "time words go early: 我现在想喝咖啡" }
+    { "id": "c30", "kind": "word", "surface": "现在 (xiànzài)", "gloss_en": "now", "expected_tones": "4-4", "prereq_ids": ["c09"], "recomb_hint": "time words go early: 我现在想喝咖啡" },
+    { "id": "c31", "kind": "function", "surface": "很 (hěn)", "gloss_en": "very (the default link before an adjective)", "expected_tones": "3", "prereq_ids": ["c18"], "recomb_hint": "adjectives take 很, not 是: 茶很…" },
+    { "id": "c32", "kind": "word", "surface": "好 (hǎo)", "gloss_en": "good", "expected_tones": "3", "prereq_ids": ["c31"], "recomb_hint": "这个茶很好 (3-3 sandhi → hén hǎo)" },
+    { "id": "c33", "kind": "function", "surface": "了 (le)", "gloss_en": "completed-action / change particle", "expected_tones": "0", "prereq_ids": ["c10"], "recomb_hint": "我喝了茶 — the action happened" },
+    { "id": "c34", "kind": "function", "surface": "在 (zài)", "gloss_en": "at / located at / in the middle of", "expected_tones": "4", "prereq_ids": ["c13"], "recomb_hint": "在 + place: 我在…" },
+    { "id": "c35", "kind": "word", "surface": "家 (jiā)", "gloss_en": "home / family", "expected_tones": "1", "prereq_ids": ["c34"], "recomb_hint": "我在家" },
+    { "id": "c36", "kind": "function", "surface": "会 (huì)", "gloss_en": "can (a learned skill)", "expected_tones": "4", "prereq_ids": ["c09"], "recomb_hint": "会 + verb: 我会…" },
+    { "id": "c37", "kind": "word", "surface": "说 (shuō)", "gloss_en": "to speak / say", "expected_tones": "1", "prereq_ids": ["c36"], "recomb_hint": "我会说…" },
+    { "id": "c38", "kind": "word", "surface": "中文 (zhōngwén)", "gloss_en": "Chinese (language)", "expected_tones": "1-2", "prereq_ids": ["c37"], "recomb_hint": "我会说中文" },
+    { "id": "c39", "kind": "word", "surface": "英文 (yīngwén)", "gloss_en": "English (language)", "expected_tones": "1-2", "prereq_ids": ["c38"], "recomb_hint": "swap the language: 你会说英文吗?" },
+    { "id": "c40", "kind": "function", "surface": "能 (néng)", "gloss_en": "can (able / allowed right now)", "expected_tones": "2", "prereq_ids": ["c36"], "recomb_hint": "能 = able this moment; 会 = a learned skill" },
+    { "id": "c41", "kind": "function", "surface": "给 (gěi)", "gloss_en": "to give / for (someone)", "expected_tones": "3", "prereq_ids": ["c01"], "recomb_hint": "给 + person + thing: 给我茶" },
+    { "id": "c42", "kind": "word", "surface": "看 (kàn)", "gloss_en": "to look / watch / read", "expected_tones": "4", "prereq_ids": ["c09"], "recomb_hint": "我想看…" },
+    { "id": "c43", "kind": "word", "surface": "买 (mǎi)", "gloss_en": "to buy", "expected_tones": "3", "prereq_ids": ["c09"], "recomb_hint": "我想买…" },
+    { "id": "c44", "kind": "function", "surface": "多少 (duōshao)", "gloss_en": "how much / how many", "expected_tones": "1-0", "prereq_ids": ["c43"], "recomb_hint": "多少钱? (how much money)" },
+    { "id": "c45", "kind": "word", "surface": "钱 (qián)", "gloss_en": "money", "expected_tones": "2", "prereq_ids": ["c44"], "recomb_hint": "这个多少钱?" },
+    { "id": "c46", "kind": "function", "surface": "块 (kuài)", "gloss_en": "unit of money (measure word)", "expected_tones": "4", "prereq_ids": ["c45", "c28"], "recomb_hint": "NUMBER + 块: 一块" },
+    { "id": "c47", "kind": "function", "surface": "几 (jǐ)", "gloss_en": "how many (expecting a small number)", "expected_tones": "3", "prereq_ids": ["c29"], "recomb_hint": "几个? — always with a measure word" },
+    { "id": "c48", "kind": "function", "surface": "们 (men)", "gloss_en": "plural for people", "expected_tones": "0", "prereq_ids": ["c06"], "recomb_hint": "我们 / 你们" },
+    { "id": "c49", "kind": "word", "surface": "朋友 (péngyou)", "gloss_en": "friend", "expected_tones": "2-0", "prereq_ids": ["c19"], "recomb_hint": "我的朋友" },
+    { "id": "c50", "kind": "word", "surface": "一起 (yìqǐ)", "gloss_en": "together", "expected_tones": "4-3", "prereq_ids": ["c13"], "recomb_hint": "我们一起去 (一 sandhi → yìqǐ)" }
   ]
 }

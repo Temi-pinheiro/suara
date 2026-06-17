@@ -1,0 +1,33 @@
+{
+  "lang": "hin",
+  "components": [
+    { "id": "h01", "kind": "function", "surface": "मैं (main)", "gloss_en": "I", "prereq_ids": [], "recomb_hint": "subject slot" },
+    { "id": "h02", "kind": "function", "surface": "हूँ (hūn)", "gloss_en": "am (goes with मैं)", "prereq_ids": ["h01"], "recomb_hint": "मैं … हूँ" },
+    { "id": "h03", "kind": "function", "surface": "आप (āp)", "gloss_en": "you (polite)", "prereq_ids": ["h01"], "recomb_hint": "swap the subject" },
+    { "id": "h04", "kind": "function", "surface": "मुझे (mujhe)", "gloss_en": "to me (for wanting)", "prereq_ids": ["h01"], "recomb_hint": "मुझे … चाहिए" },
+    { "id": "h05", "kind": "function", "surface": "चाहिए (chāhie)", "gloss_en": "want / need (a thing)", "prereq_ids": ["h04"], "recomb_hint": "मुझे पानी चाहिए" },
+    { "id": "h06", "kind": "word", "surface": "पानी (pānī)", "gloss_en": "water", "prereq_ids": ["h05"], "recomb_hint": "मुझे पानी चाहिए" },
+    { "id": "h07", "kind": "word", "surface": "चाय (chāy)", "gloss_en": "tea", "prereq_ids": ["h06"], "recomb_hint": "swap the noun" },
+    { "id": "h08", "kind": "word", "surface": "कॉफ़ी (kŏfī)", "gloss_en": "coffee", "prereq_ids": ["h06"], "recomb_hint": "swap the noun" },
+    { "id": "h09", "kind": "word", "surface": "पीना (pīnā)", "gloss_en": "to drink", "prereq_ids": ["h06"], "recomb_hint": "verb in dictionary form" },
+    { "id": "h10", "kind": "word", "surface": "खाना (khānā)", "gloss_en": "to eat / food", "prereq_ids": ["h09"], "recomb_hint": "same frame as पीना" },
+    { "id": "h11", "kind": "pattern", "surface": "चाहता हूँ (chāhtā hūn)", "gloss_en": "I want to (do)", "prereq_ids": ["h02", "h09"], "recomb_hint": "मैं पानी पीना चाहता हूँ" },
+    { "id": "h12", "kind": "function", "surface": "क्या (kyā)", "gloss_en": "what / yes-no question marker", "prereq_ids": ["h05"], "recomb_hint": "आपको क्या चाहिए?" },
+    { "id": "h13", "kind": "function", "surface": "को (ko)", "gloss_en": "to / object marker", "prereq_ids": ["h03"], "recomb_hint": "आपको (to you)" },
+    { "id": "h14", "kind": "function", "surface": "कहाँ (kahān)", "gloss_en": "where", "prereq_ids": ["h09"], "recomb_hint": "pairs with जाना" },
+    { "id": "h15", "kind": "function", "surface": "यह (yah)", "gloss_en": "this", "prereq_ids": ["h02"], "recomb_hint": "यह चाय है" },
+    { "id": "h16", "kind": "function", "surface": "वह (vah)", "gloss_en": "that", "prereq_ids": ["h15"], "recomb_hint": "contrast this / that" },
+    { "id": "h17", "kind": "word", "surface": "अच्छा (acchā)", "gloss_en": "good / nice", "prereq_ids": ["h15"], "recomb_hint": "यह चाय अच्छी है" },
+    { "id": "h18", "kind": "function", "surface": "नहीं (nahīn)", "gloss_en": "no / not", "prereq_ids": ["h05"], "recomb_hint": "मुझे चाय नहीं चाहिए" },
+    { "id": "h19", "kind": "connector", "surface": "और (aur)", "gloss_en": "and", "prereq_ids": ["h07"], "recomb_hint": "चाय और पानी" },
+    { "id": "h20", "kind": "function", "surface": "हाँ (hān)", "gloss_en": "yes", "prereq_ids": ["h18"], "recomb_hint": "answer a क्या-question" },
+    { "id": "h21", "kind": "word", "surface": "जाना (jānā)", "gloss_en": "to go", "prereq_ids": ["h11"], "recomb_hint": "मैं घर जाना चाहता हूँ" },
+    { "id": "h22", "kind": "word", "surface": "घर (ghar)", "gloss_en": "home / house", "prereq_ids": ["h21"], "recomb_hint": "घर जाना" },
+    { "id": "h23", "kind": "word", "surface": "थोड़ा (thoṛā)", "gloss_en": "a little", "prereq_ids": ["h09"], "recomb_hint": "थोड़ा पानी" },
+    { "id": "h24", "kind": "word", "surface": "बहुत (bahut)", "gloss_en": "very / a lot", "prereq_ids": ["h17"], "recomb_hint": "बहुत अच्छा" },
+    { "id": "h25", "kind": "word", "surface": "धन्यवाद (dhanyavād)", "gloss_en": "thank you", "prereq_ids": ["h01"], "recomb_hint": "everyday courtesy" },
+    { "id": "h26", "kind": "function", "surface": "कौन (kaun)", "gloss_en": "who", "prereq_ids": ["h12"], "recomb_hint": "वह कौन है?" },
+    { "id": "h27", "kind": "function", "surface": "मेरा (merā)", "gloss_en": "my", "prereq_ids": ["h15"], "recomb_hint": "मेरा पानी" },
+    { "id": "h28", "kind": "function", "surface": "आपका (āpkā)", "gloss_en": "your (polite)", "prereq_ids": ["h27", "h03"], "recomb_hint": "आपका घर" }
+  ]
+}

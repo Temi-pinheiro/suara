@@ -9,8 +9,9 @@
 
 import process from 'node:process';
 import { completeTurn, planTurn } from '@suara/core';
-import type { AudioBlob, LanguageConfig } from '@suara/core';
+import type { AudioBlob } from '@suara/core';
 import { createTurnHandlerDeps } from '../src/prod';
+import { isSupportedLang, languageConfig } from '../src/config/languages';
 import { pcmToWav } from '../src/audio/wav';
 import { UsageMeter } from '../src/cost/meter';
 import { estimateCost } from '../src/cost/pricing';
@@ -27,6 +28,11 @@ if (!KEY) {
   process.exit(1);
 }
 const USER = process.argv[2] ?? `demo-${Date.now()}`;
+const LANG = process.env.SUARA_LANG ?? 'cmn';
+if (!isSupportedLang(LANG)) {
+  console.error(`SUARA_LANG="${LANG}" is not one of cmn, jpn, kor, hin, ind`);
+  process.exit(1);
+}
 
 async function fetchVoices(): Promise<Array<{ voice_id: string; name: string }>> {
   const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': KEY! } });
@@ -53,19 +59,12 @@ const voices = await fetchVoices();
 const targetVoice = voices[0]!.voice_id;
 const l1Voice = voices[1]?.voice_id ?? targetVoice;
 
-const config: LanguageConfig = {
-  code: 'cmn',
-  l1: 'eng',
-  phonology: 'tonal',
-  toneInventory: ['1', '2', '3', '4', '0'],
-  tts: { provider: 'elevenlabs', targetVoiceId: targetVoice, l1VoiceId: l1Voice },
-  pronunciation: { mode: 'tone', provider: 'azure' },
-};
+const config = languageConfig(LANG, { targetVoiceId: targetVoice, l1VoiceId: l1Voice });
 
 const meter = new UsageMeter();
 const { deps } = createTurnHandlerDeps(config, process.env, { meter });
 
-console.log(`\n=== Suara live turn — user "${USER}" ===\n`);
+console.log(`\n=== Suara live turn — user "${USER}" · ${config.code} (${config.pronunciation.mode}) ===\n`);
 
 // PLAN + PROMPT — real brain picks the next block; TTS uploads the setup to R2.
 const plan = await planTurn(deps, USER);
@@ -99,7 +98,7 @@ console.log('  correction :', result.feedback.correction);
 console.log('SPEAK');
 console.log('  model → R2 :', result.modelAudio.url);
 
-const state = await deps.store.getState(USER, 'cmn');
+const state = await deps.store.getState(USER, config.code);
 console.log('\nPERSIST (read back from Supabase)');
 console.log('  known      :', state.known);
 console.log('  turnIndex  :', state.turnIndex);
