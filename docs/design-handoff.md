@@ -155,3 +155,46 @@ Include all eight:
 Implement the spec in `packages/client` (tokens → a shared theme module; per-state layouts
 → `LessonScreen` + components; entry/picker → new screens), keep RN + Web compiling and the
 lesson state machine intact, typecheck + web-export to verify, then hand back for your final pass.
+
+---
+
+## Appendix — kickoff prompt for Claude Design (paste this)
+
+> Decision: we are **not** syncing Suara's components into Claude Design (it's an Expo/React
+> Native app with native-module deps, not a bundlable web design system). Instead, design
+> fresh against this brief. Paste the block below to start; it carries the essentials, and
+> this doc is the full reference + the deliverable contract (Part B).
+
+```
+You're designing Suara — an all-voice, self-paced language tutor (Michel Thomas method;
+Mandarin launch, five languages on one engine). The whole app is ONE lesson screen plus a
+first-run/entry flow and a 5-language picker. Make it calm, warm, and obviously voice-first —
+a patient teacher, not an app that grades you.
+
+HARD RULES (do not design these away):
+- No scores/percentages/grades, no streaks, no flashcards/quiz/review framing, no "you forgot".
+- Pronunciation feedback is ONE warm sentence, never a number or pass/fail.
+- Self-paced: no timers, no countdowns, no auto-advance — advancing is always an explicit tap.
+- Construct-first: the answer is hidden until after the learner speaks.
+- English-scaffolded; the target language appears only for the taught word + the model.
+- Fully operable by voice; visuals are an optional aid (accessibility is core).
+
+BUILD TARGET (keep it implementable): React Native + React Native Web, ONE codebase, styled
+with StyleSheet/flexbox. No web-only CSS (no backdrop-filter, CSS grid, hover-only states),
+flat fills + subtle shadow over gradients/blur, touch-first, also readable at desktop-web width.
+The word card must render Hanzi / Hiragana-Kanji / Hangul / Devanagari + a romanization line.
+Audio is tap-initiated (no autoplay): keep a visible "Listen" control on any state with audio.
+
+STATES TO COVER: loading · awaiting(introduce: word card; recombine: setup only) · recording ·
+scoring · feedback(correct/close/off) · error. Plus first-run/entry and the language picker.
+
+CURRENT BASELINE (improve freely): bg #FAF8F3, text #2B2B2B, muted #6A6A6A, primary #3A6EA5,
+recording #B5524B, verdict warmths correct #3E9E7E / close #C8862B / off #3A6EA5, "suara" wordmark.
+
+DELIVER BACK (so engineering can build in one pass): named design tokens (color/type/space/
+radius/shadow; font files if custom — must cover CJK+Devanagari or be Latin-only); a per-state
+layout (wireframe + flexbox-term annotations) for every state above; component specs with all
+states (≥44pt tap targets); motion in RN-expressible terms; UI copy; accessibility notes;
+icons/assets as @expo/vector-icons names or SVG files; and a one-line RN/Web compatibility
+confirmation.
+```
