@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Platform } from 'react-native';
 import {
   AudioModule,
@@ -38,12 +38,20 @@ const RECORDING_MIME = Platform.select({ ios: 'audio/wav', android: 'audio/mp4',
  * Device AudioIO via expo-audio (expo-av's successor). Playback is imperative
  * (createAudioPlayer); recording is hook-based (useAudioRecorder), so this is a hook
  * that returns the AudioIO. Mic capture is self-paced — start/stop are driven by the
- * learner tapping, never a timer. Not exercised in CI; the lesson logic is tested
- * against MockAudioIO.
+ * learner tapping, never a timer. Not exercised in CI; the pure lesson machine
+ * (machine.ts) is unit-tested directly without audio.
  */
 export function useExpoAudioIO(): AudioIO {
   const recorder = useAudioRecorder(RECORDING_OPTIONS);
   const permitted = useRef(false);
+
+  // iOS: let playback through even when the ringer is on silent. Set once at
+  // startup so the very first clip plays — previously this only ran inside
+  // startRecording, so playback before the first recording was muted on a silenced
+  // device. No-op (and harmless) on web/Android.
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+  }, []);
 
   return useMemo<AudioIO>(
     () => ({
@@ -51,13 +59,40 @@ export function useExpoAudioIO(): AudioIO {
         const player = createAudioPlayer(url);
         try {
           await new Promise<void>((resolve) => {
-            player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
-              if (status.didJustFinish) resolve();
+            let settled = false;
+            // Hard cap so a clip that never loads (bad URL, autoplay blocked on web)
+            // can't leak a pending promise. Replaced by a precise timer below.
+            let timer: ReturnType<typeof setTimeout> = setTimeout(finish, 20_000);
+
+            function finish() {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timer);
+              sub.remove();
+              resolve();
+            }
+
+            const sub = player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+              if (status.didJustFinish) {
+                finish(); // native end signal
+                return;
+              }
+              // Web fallback: the <audio> element's `ended` event is NOT surfaced as
+              // didJustFinish, so once the duration is known, (re)arm a timer for the
+              // remaining playback time. Re-arming on each tick keeps it accurate and
+              // safely past the real end (status updates stop once playback finishes).
+              const dur = player.duration;
+              if (Number.isFinite(dur) && dur > 0) {
+                clearTimeout(timer);
+                const remainingMs = Math.max(0, (dur - player.currentTime) * 1000) + 600;
+                timer = setTimeout(finish, remainingMs);
+              }
             });
+
             player.play();
           });
         } finally {
-          player.remove(); // always release the native player, even on error
+          player.remove(); // always release the native player
         }
       },
 

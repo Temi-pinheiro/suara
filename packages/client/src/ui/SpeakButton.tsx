@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { LessonPhase } from '../lesson/machine';
 
 interface Props {
@@ -15,31 +15,45 @@ export function SpeakButton({ phase, onSpeak, onStop }: Props) {
   const recording = phase === 'recording';
   const enabled = phase === 'awaiting' || recording;
 
-  const label = recording ? 'Tap when you’re done' : phase === 'awaiting' ? 'Tap to speak' : '…';
-
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={recording ? 'Stop speaking' : 'Speak'}
-      disabled={!enabled}
-      onPress={recording ? onStop : onSpeak}
-      style={[styles.button, recording && styles.recording, !enabled && styles.disabled]}
-    >
-      <Text style={styles.label}>{label}</Text>
-    </Pressable>
+    <View style={styles.wrap}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={recording ? 'Stop speaking' : 'Speak'}
+        disabled={!enabled}
+        onPress={recording ? onStop : onSpeak}
+        style={({ pressed }) => [
+          styles.button,
+          recording && styles.recording,
+          !enabled && styles.disabled,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text style={styles.glyph}>{recording ? '■' : '🎙'}</Text>
+      </Pressable>
+      <Text style={styles.caption}>{recording ? 'Tap when you’re done' : 'Tap and say it'}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: { alignItems: 'center', gap: 14 },
   button: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#3A6EA5',
+    shadowColor: '#3A6EA5',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
   },
-  recording: { backgroundColor: '#B5524B' },
-  disabled: { opacity: 0.4 },
-  label: { color: 'white', fontSize: 20, fontWeight: '600', textAlign: 'center', paddingHorizontal: 16 },
+  recording: { backgroundColor: '#B5524B', shadowColor: '#B5524B' },
+  disabled: { opacity: 0.35 },
+  pressed: { transform: [{ scale: 0.96 }] },
+  glyph: { fontSize: 44, color: 'white' },
+  caption: { fontSize: 15, color: '#6A6A6A' },
 });

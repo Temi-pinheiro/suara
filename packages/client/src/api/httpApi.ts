@@ -1,6 +1,6 @@
 /**
  * HttpSessionApi — talks to the serverless turn endpoints (createHttpHandler).
- * Swaps in for MockSessionApi when EXPO_PUBLIC_SUARA_API is configured.
+ * The client's only SessionApi: every turn round-trips to the real backend.
  *
  *   nextPrompt()            -> POST {base}/turn/plan
  *   submitAttempt(id, audio)-> POST {base}/turn/{id}/attempt  (recorded audio as body)
