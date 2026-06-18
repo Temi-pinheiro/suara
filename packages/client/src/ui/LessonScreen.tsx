@@ -79,7 +79,7 @@ export function LessonScreen({ api, audio, title = 'Mandarin', onExit }: Props) 
           </CenterState>
         ) : phase === 'feedback' && attempt ? (
           <>
-            {attempt.transcript ? <EchoBubble text={attempt.transcript} /> : null}
+            {attempt.transcript ? <EchoBubble text={attempt.transcript} roman={attempt.transcriptRoman} /> : null}
             <FeedbackCard
               verdict={attempt.verdict}
               verdictLine={VERDICT_LINE[attempt.verdict]}

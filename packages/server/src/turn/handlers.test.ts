@@ -81,6 +81,13 @@ describe('turn handlers — two-phase HTTP turn', () => {
     expect(state.turnIndex).toBe(1);
   });
 
+  it('strips ASR sound annotations from the echoed transcript', async () => {
+    const { h } = cmnHandlers();
+    await planTurnHandler(h, { userId: 'u-ann' });
+    const result = await attemptHandler(h, { turnId: 'turn-1', audio: spokenAudio('我 (吃东西的声音)') });
+    expect(result.transcript).toBe('我'); // the (sound) annotation is removed
+  });
+
   it('a tone miss comes back as a rebuild carrying the tone to coach', async () => {
     const pron = new MockPronunciationProvider({
       byReference: { 我: { overall: 60, perSyllable: [{ unit: '我', score: 55, expectedTone: '3', producedTone: '2' }] } },

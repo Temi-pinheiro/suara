@@ -52,6 +52,8 @@ export interface AttemptResult {
   modelAudioUrl: string;
   /** what the learner said (ASR) — shown back as the echo, never graded */
   transcript?: string;
+  /** the learner's attempt in romanization, so a beginner can read what they said */
+  transcriptRoman?: string;
   /** the revealed model (target script + romanization), shown after the attempt */
   modelSurface?: string;
   modelPinyin?: string;

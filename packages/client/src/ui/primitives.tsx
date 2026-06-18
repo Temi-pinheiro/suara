@@ -169,12 +169,14 @@ export function FeedbackCard({
   );
 }
 
-/** The learner's verbatim words after capture — teal, right-aligned, never paraphrased. */
-export function EchoBubble({ text, pending = false }: { text: string; pending?: boolean }) {
+/** The learner's verbatim words after capture — teal, right-aligned, never paraphrased.
+ *  `roman` shows the attempt in romanization so a beginner can read what they said. */
+export function EchoBubble({ text, roman, pending = false }: { text: string; roman?: string; pending?: boolean }) {
   const { c } = useTheme();
   return (
     <View style={[styles.echo, { backgroundColor: c.wash }]}>
       <Text style={{ fontSize: 20, fontWeight: '700', color: pending ? c.faint : c.primary }}>{text}</Text>
+      {roman ? <Text style={{ fontSize: 14, color: c.primary, opacity: 0.75, marginTop: 2 }}>{roman}</Text> : null}
     </View>
   );
 }
@@ -404,7 +406,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingLeft: 16,
     paddingRight: 20,
-    alignSelf: 'center',
   },
   pillLabel: { fontSize: 15, fontWeight: '700' },
   wordCard: {
@@ -427,14 +428,13 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   fbModel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
-    paddingTop: 8,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
   },
-  fbModelWord: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  fbModelWord: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 10 },
   echo: {
     alignSelf: 'flex-end',
     maxWidth: '82%',

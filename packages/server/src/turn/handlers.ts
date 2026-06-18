@@ -61,6 +61,8 @@ export interface AttemptResultDto {
   modelAudioUrl: string;
   /** what the learner actually said (ASR) — shown back as the echo, never a grade */
   transcript: string;
+  /** the learner's attempt in romanization (brain-written), so a beginner can read it */
+  transcriptRoman?: string;
   /** the revealed model, in the target script (+ romanization) — shown after the attempt */
   modelSurface: string;
   modelPinyin?: string;
@@ -76,6 +78,17 @@ export interface TurnHandlerDeps {
   pending: PendingTurnStore;
   now?: () => number;
   idgen?: () => string;
+}
+
+/**
+ * ASR (Scribe) tags non-speech sounds in brackets, e.g. "我也要吃啊。(吃东西的声音)".
+ * Strip those so the echo shows only what the learner actually said.
+ */
+function stripAudioAnnotations(text: string): string {
+  return text
+    .replace(/[（(【[][^）)】\]]*[）)】\]]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 export async function planTurnHandler(h: TurnHandlerDeps, req: PlanRequest): Promise<PromptPacketDto> {
@@ -142,11 +155,12 @@ export async function attemptHandler(h: TurnHandlerDeps, req: AttemptRequest): P
     verdict: result.feedback.verdict,
     correction: result.feedback.correction,
     modelAudioUrl: result.modelAudio.url ?? '',
-    transcript: result.transcript,
+    transcript: stripAudioAnnotations(result.transcript),
     modelSurface: target.surface,
     decision: result.feedback.decision,
   };
   if (target.pinyin) dto.modelPinyin = target.pinyin;
+  if (result.feedback.attemptRoman) dto.transcriptRoman = result.feedback.attemptRoman;
   if (toneFocus) dto.toneFocus = toneFocus;
   return dto;
 }

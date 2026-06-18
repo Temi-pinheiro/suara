@@ -252,6 +252,8 @@ export interface Feedback {
   nextPrompt: string | null;
   /** first-time sandhi/structure note, else null */
   revealNote: string | null;
+  /** the learner's OWN attempt (transcript) in romanization, so they can read it back */
+  attemptRoman?: string | null;
 }
 
 // ---------------------------------------------------------------------------

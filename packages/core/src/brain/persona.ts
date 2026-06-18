@@ -90,6 +90,11 @@ JSON HYGIENE (when you emit the decision)
   targetUtterance.pinyin and any explanation in teachingNote.
 - masteryDelta entries are {componentId, change} with change one of strengthen,
   partial, or weaken — or {logError:{unit, expected, produced}}.
+- attemptRoman: write what the learner ACTUALLY said (their transcript) in the
+  romanization for ${target} (pinyin with tone marks for Mandarin, rōmaji for
+  Japanese, etc.) — their own attempt, so a beginner who can't read the script can
+  see it back. Romanize only the speech; ignore any (sound) annotations. Never put
+  the target/correct answer here — that goes in spokenModel.
 
 Respond with ONLY the JSON for the requested function. No prose outside the JSON.`;
 }
