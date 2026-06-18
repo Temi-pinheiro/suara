@@ -85,4 +85,29 @@ describe('createHttpHandler', () => {
     const res = await handle(post('/nope'));
     expect(res.status).toBe(404);
   });
+
+  it('routes by the x-suara-lang header, falling back to the default (the picker)', async () => {
+    const mk = (id: string): TurnHandlerDeps => ({
+      deps: assembleTurnDeps({
+        config: cmnConfig,
+        store: new InMemoryLearnerStore(clock),
+        llm: new MockLLMProvider(),
+        tts: new MockTTSProvider(),
+        asr: new MockASRProvider(),
+        pronunciation: new MockPronunciationProvider(),
+      }),
+      pending: new InMemoryPendingTurnStore(),
+      now: clock,
+      idgen: () => id,
+    });
+    const cmnH = mk('cmn-turn');
+    const jpnH = mk('jpn-turn');
+    const handle = createHttpHandler((lang) => (lang === 'jpn' ? jpnH : cmnH), { authenticate: devHeaderAuth });
+
+    const def = await handle(post('/turn/plan')); // no header → default deps
+    expect(((await def.json()) as { turnId: string }).turnId).toBe('cmn-turn');
+
+    const jp = await handle(post('/turn/plan', { headers: { 'x-user-id': 'u1', 'x-suara-lang': 'jpn' } }));
+    expect(((await jp.json()) as { turnId: string }).turnId).toBe('jpn-turn');
+  });
 });

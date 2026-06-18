@@ -10,8 +10,8 @@
 
 import { createServer } from 'node:http';
 import process from 'node:process';
-import { createTurnHandlerDeps } from '../src/prod';
-import { isSupportedLang, languageConfig } from '../src/config/languages';
+import { createLanguageRouter } from '../src/prod';
+import { isSupportedLang } from '../src/config/languages';
 import { createHttpHandler, devHeaderAuth } from '../src/http/handler';
 
 try {
@@ -26,7 +26,7 @@ if (!KEY) {
   process.exit(1);
 }
 
-const LANG = process.env.SUARA_LANG ?? 'cmn';
+const LANG = process.env.SUARA_LANG ?? 'cmn'; // default when the client sends no x-suara-lang
 if (!isSupportedLang(LANG)) {
   console.error(`SUARA_LANG="${LANG}" is not one of cmn, jpn, kor, hin, ind`);
   process.exit(1);
@@ -37,9 +37,15 @@ const voices = (await voicesRes.json()).voices as Array<{ voice_id: string; name
 const targetVoice = voices[0]!;
 const l1Voice = voices[1] ?? voices[0]!;
 
-const config = languageConfig(LANG, { targetVoiceId: targetVoice.voice_id, l1VoiceId: l1Voice.voice_id });
+// All five languages are switchable per request (the client's x-suara-lang header);
+// LANG is just the default when none is sent.
+const router = createLanguageRouter(
+  process.env,
+  { targetVoiceId: targetVoice.voice_id, l1VoiceId: l1Voice.voice_id },
+  { defaultLang: LANG },
+);
 
-const handle = createHttpHandler(createTurnHandlerDeps(config, process.env), { authenticate: devHeaderAuth });
+const handle = createHttpHandler((lang) => router.resolve(lang), { authenticate: devHeaderAuth });
 const PORT = Number(process.env.PORT ?? 8787);
 
 createServer(async (req, res) => {
@@ -69,8 +75,8 @@ createServer(async (req, res) => {
   }
 }).listen(PORT, () => {
   console.log(
-    `Suara dev server → http://localhost:${PORT}  (${config.code} · ${config.pronunciation.mode}` +
-      ` · tts voice "${targetVoice.name}")`,
+    `Suara dev server → http://localhost:${PORT}  (default ${LANG} · all five switchable` +
+      ` via x-suara-lang · tts voice "${targetVoice.name}")`,
   );
   console.log('Point the client at it: EXPO_PUBLIC_SUARA_API=http://localhost:' + PORT);
 });

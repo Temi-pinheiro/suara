@@ -18,8 +18,9 @@ import {
   type AnthropicClientLike,
   type AnthropicProviderOptions,
 } from '@suara/providers';
-import type { ASRProvider, LanguageConfig, PronunciationProvider, TTSProvider } from '@suara/core';
+import type { ASRProvider, LangCode, LanguageConfig, PronunciationProvider, TTSProvider } from '@suara/core';
 import { assembleTurnDeps } from './compose';
+import { isSupportedLang, languageConfig, type VoiceIds } from './config/languages';
 import { MeteredASRProvider, MeteredPronunciationProvider, MeteredTTSProvider, type UsageMeter } from './cost/meter';
 import { createDb } from './db/client';
 import { DrizzleLearnerStore } from './db/learnerStore';
@@ -122,4 +123,55 @@ export function createTurnHandlerDeps(
     pronunciation: meter ? new MeteredPronunciationProvider(pron, meter) : pron,
   });
   return { deps, pending: new DrizzlePendingTurnStore(db) };
+}
+
+/**
+ * Resolves TurnHandlerDeps by language for runtime language switching (the picker).
+ * Shared infra — one DB, one Anthropic client, one TTS/ASR — is built once; only the
+ * config, brain, pronunciation provider and (in-process) curriculum graph vary per
+ * language. Per-language deps are built lazily and cached. Routing stays by
+ * LanguageConfig/mode, never `if (lang === ...)`.
+ */
+export interface LanguageRouter {
+  resolve(lang: string | undefined): TurnHandlerDeps;
+}
+
+export function createLanguageRouter(
+  env: ServerEnv,
+  voices: VoiceIds,
+  opts: { defaultLang?: LangCode } = {},
+): LanguageRouter {
+  const db = createDb(required(env, 'DATABASE_URL'));
+  const client = new Anthropic() as unknown as AnthropicClientLike;
+  const tts = buildTts(env);
+  const asr = buildAsr(env);
+  const store = new DrizzleLearnerStore(db);
+  const pending = new DrizzlePendingTurnStore(db); // shared: keyed by turnId, not language
+  const defaultLang: LangCode = opts.defaultLang ?? 'cmn';
+  const cache = new Map<LangCode, TurnHandlerDeps>();
+
+  function build(lang: LangCode): TurnHandlerDeps {
+    const config = languageConfig(lang, voices);
+    const deps = assembleTurnDeps({
+      config,
+      store,
+      llm: new AnthropicProvider({ config, client }),
+      tts,
+      asr,
+      pronunciation: buildPronunciation(config, env),
+    });
+    return { deps, pending };
+  }
+
+  return {
+    resolve(lang) {
+      const code: LangCode = lang && isSupportedLang(lang) ? lang : defaultLang;
+      let h = cache.get(code);
+      if (!h) {
+        h = build(code);
+        cache.set(code, h);
+      }
+      return h;
+    },
+  };
 }

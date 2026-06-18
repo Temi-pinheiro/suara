@@ -1,11 +1,13 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Button } from './primitives';
 import { useTheme } from './theme';
 
 interface Props {
   onBegin: () => void;
-  /** launch language label (picker is deferred — needs runtime language switching) */
+  onPickLanguage?: () => void;
+  /** current language label + badge */
   language?: string;
   code?: string;
 }
@@ -18,7 +20,7 @@ const BAR_HEIGHTS = [16, 26, 38, 52, 40, 28, 20];
  * disallowed, CLAUDE.md §6 — no goals, no streak). "Begin" starts the lesson AND
  * is the first user gesture, which unlocks audio on web (browser autoplay policy).
  */
-export function EntryScreen({ onBegin, language = 'Mandarin', code = 'ZH' }: Props) {
+export function EntryScreen({ onBegin, onPickLanguage, language = 'Mandarin', code = 'ZH' }: Props) {
   const { c } = useTheme();
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]} edges={['top', 'bottom']}>
@@ -45,12 +47,18 @@ export function EntryScreen({ onBegin, language = 'Mandarin', code = 'ZH' }: Pro
         <View style={styles.grow} />
 
         <Button label="Begin" onPress={onBegin} />
-        <View style={[styles.langPill, { backgroundColor: c.surface, borderColor: c.stroke }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Language: ${language}. Tap to change.`}
+          onPress={onPickLanguage}
+          style={({ pressed }) => [styles.langPill, { backgroundColor: c.surface, borderColor: c.stroke }, pressed && { opacity: 0.7 }]}
+        >
           <View style={[styles.code, { backgroundColor: c.cream }]}>
             <Text style={{ fontSize: 12, fontWeight: '800', color: c.dim }}>{code}</Text>
           </View>
           <Text style={{ fontSize: 14, fontWeight: '800', color: c.text }}>{language}</Text>
-        </View>
+          <Ionicons name="chevron-down" size={13} color={c.faint} />
+        </Pressable>
       </View>
     </SafeAreaView>
   );

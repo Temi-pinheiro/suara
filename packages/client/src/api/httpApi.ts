@@ -15,22 +15,27 @@ import type { AttemptResult, PromptPacket, SessionApi } from './types';
 export interface HttpSessionApiOptions {
   baseUrl: string;
   userId: string;
+  /** target language (x-suara-lang) — the server routes the turn to it */
+  lang?: string;
 }
 
 export class HttpSessionApi implements SessionApi {
   private readonly base: string;
   private readonly userId: string;
+  private readonly lang: string | undefined;
 
   constructor(opts: HttpSessionApiOptions) {
     this.base = opts.baseUrl.replace(/\/$/, '');
     this.userId = opts.userId;
+    this.lang = opts.lang;
+  }
+
+  private headers(extra: Record<string, string> = {}): Record<string, string> {
+    return { 'x-user-id': this.userId, ...(this.lang ? { 'x-suara-lang': this.lang } : {}), ...extra };
   }
 
   async nextPrompt(): Promise<PromptPacket> {
-    const res = await fetch(`${this.base}/turn/plan`, {
-      method: 'POST',
-      headers: { 'x-user-id': this.userId },
-    });
+    const res = await fetch(`${this.base}/turn/plan`, { method: 'POST', headers: this.headers() });
     if (!res.ok) throw new Error(`plan failed: ${res.status}`);
     return (await res.json()) as PromptPacket;
   }
@@ -40,7 +45,7 @@ export class HttpSessionApi implements SessionApi {
     const blob = await (await fetch(audio.uri)).blob();
     const res = await fetch(`${this.base}/turn/${encodeURIComponent(turnId)}/attempt`, {
       method: 'POST',
-      headers: { 'x-user-id': this.userId, 'content-type': audio.mimeType },
+      headers: this.headers({ 'content-type': audio.mimeType }),
       body: blob,
     });
     if (!res.ok) throw new Error(`attempt failed: ${res.status}`);

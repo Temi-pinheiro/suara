@@ -31,10 +31,18 @@ export function devHeaderAuth(req: Request): string {
 
 export type HttpHandler = (req: Request) => Promise<Response>;
 
-export function createHttpHandler(deps: TurnHandlerDeps, opts: HttpHandlerOptions): HttpHandler {
+/**
+ * Either a single deps (one language) or a resolver that picks deps by the request's
+ * `x-suara-lang` (the picker / runtime language switching). The client sends the same
+ * language on plan + attempt, so the pair stays consistent.
+ */
+export type DepsSource = TurnHandlerDeps | ((lang: string | undefined) => TurnHandlerDeps);
+
+export function createHttpHandler(deps: DepsSource, opts: HttpHandlerOptions): HttpHandler {
+  const resolve = typeof deps === 'function' ? deps : () => deps;
   const cors: Record<string, string> = {
     'access-control-allow-origin': opts.corsOrigin ?? '*',
-    'access-control-allow-headers': 'authorization, content-type, x-user-id',
+    'access-control-allow-headers': 'authorization, content-type, x-user-id, x-suara-lang',
     'access-control-allow-methods': 'POST, OPTIONS',
   };
   const json = (status: number, body: unknown): Response =>
@@ -46,6 +54,7 @@ export function createHttpHandler(deps: TurnHandlerDeps, opts: HttpHandlerOption
     const path = new URL(req.url).pathname.replace(/\/+$/, '');
     try {
       const userId = await opts.authenticate(req);
+      const deps = resolve(req.headers.get('x-suara-lang') ?? undefined);
 
       if (req.method === 'POST' && path.endsWith('/turn/plan')) {
         return json(200, await planTurnHandler(deps, { userId }));
