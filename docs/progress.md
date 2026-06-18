@@ -164,8 +164,12 @@ defaults to `http://localhost:8787`; override with `EXPO_PUBLIC_SUARA_API` for a
   Turn DTOs were enriched (transcript echo, revealed model word, recombine pieces shelf).
 - **Runtime language switching:** ✅ a `LanguageRouter` (`prod.ts`) resolves deps by an
   `x-suara-lang` header over shared infra; the picker switches all five live (graph is
-  in-process, store is per-language → no per-language DB seeding needed). ⬜ Remaining:
-  per-session **spend** meter and the **path/moduleIntro** progress screens.
+  in-process, store is per-language → no per-language DB seeding needed).
+- **Spend + path:** ✅ per-request metering → a session **spend** indicator in the topbar
+  (`costUsd` folded into each response, accumulated in-memory); a **module path model** —
+  the cmn graph grouped into 9 modules, a `GET /path` overview derived from SRS state
+  (done/here/ahead, owned vs ahead), and the `path` + `moduleIntro` screens (Begin →
+  glance → lesson). Modules are cmn-only so far; other languages fall through to the lesson.
 - **Phase 2 — Pedagogy hardening:** 🟡 mostly done. ✅ `gen:audio` pre-gen pipeline +
   cost instrumentation (done earlier); ✅ Mandarin graph expanded 30 → 50 (DAG-validated);
   ✅ simulated classmates implemented as an opt-in `LanguageConfig.classmates` flag (core
