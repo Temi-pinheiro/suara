@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HttpSessionApi } from './src/api/httpApi';
-import type { PathView } from './src/api/types';
+import type { ModulePath, PathView } from './src/api/types';
 import { useExpoAudioIO } from './src/audio/expoAudio';
 import { languageByCode, type LangCode } from './src/languages';
 import { EntryScreen } from './src/ui/EntryScreen';
@@ -24,20 +24,22 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('entry');
   const [lang, setLang] = useState<LangCode>('cmn');
   const [path, setPath] = useState<PathView | null>(null);
+  const [viewModule, setViewModule] = useState<ModulePath | null>(null);
 
   // Rebuild the api when the language changes so x-suara-lang follows the picker.
   const api = useMemo(() => new HttpSessionApi({ baseUrl: apiUrl, userId, lang }), [lang]);
   const language = languageByCode(lang);
-  const here = path?.modules.find((m) => m.state === 'here');
 
-  // "Begin" peeks at the path: if this language has modules, show the glance first;
-  // otherwise (or if the server's unreachable) go straight to the lesson, which then
-  // surfaces its own error. Fetching here is also the first user gesture (unlocks web audio).
+  // "Begin" peeks at the path: if this language has modules, open the in-progress
+  // module's glance first; otherwise (or if the server's unreachable) go straight to
+  // the lesson, which surfaces its own error. This tap also unlocks web audio.
   const begin = useCallback(async () => {
     try {
       const p = await api.getPath();
-      if (p.modules.some((m) => m.state === 'here')) {
+      const here = p.modules.find((m) => m.state === 'here');
+      if (here) {
         setPath(p);
+        setViewModule(here);
         setScreen('moduleIntro');
         return;
       }
@@ -47,6 +49,8 @@ export default function App() {
     setScreen('lesson');
   }, [api]);
 
+  // Navigation hierarchy: entry → moduleIntro(here) → lesson, with the path overview
+  // (every module tappable) one ‹ away. moduleIntro ‹ → path; path ‹ → entry; lesson ✕ → entry.
   return (
     <SafeAreaProvider>
       <StatusBar style="auto" />
@@ -58,18 +62,25 @@ export default function App() {
           onSelect={(code) => {
             setLang(code);
             setPath(null);
+            setViewModule(null);
             setScreen('entry');
           }}
           onClose={() => setScreen('entry')}
         />
       ) : screen === 'path' && path ? (
-        <PathScreen path={path} onOpenHere={() => setScreen('moduleIntro')} onBack={() => setScreen('moduleIntro')} />
-      ) : screen === 'moduleIntro' && here ? (
+        <PathScreen
+          path={path}
+          onSelectModule={(m) => {
+            setViewModule(m);
+            setScreen('moduleIntro');
+          }}
+          onBack={() => setScreen('entry')}
+        />
+      ) : screen === 'moduleIntro' && viewModule ? (
         <ModuleIntroScreen
-          module={here}
+          module={viewModule}
           onBegin={() => setScreen('lesson')}
           onViewPath={() => setScreen('path')}
-          onClose={() => setScreen('entry')}
         />
       ) : (
         <EntryScreen

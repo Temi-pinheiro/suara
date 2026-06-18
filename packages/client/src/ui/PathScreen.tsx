@@ -6,17 +6,18 @@ import { space, type, useTheme } from './theme';
 
 interface Props {
   path: PathView;
-  /** tap the in-progress ("here") module → its intro/lesson */
-  onOpenHere: () => void;
+  /** open any module's glance (only the "here" one offers a lesson start) */
+  onSelectModule: (m: ModulePath) => void;
   onBack?: () => void;
 }
 
 /**
  * The path overview (design pass): modules as small functional blocks, each showing
  * the pieces you OWN (filled teal) vs ahead (outline) + a done/here/ahead dot. The
- * honest progress signal — no %, no score, no streak. Nothing is locked.
+ * honest progress signal — no %, no score, no streak. Every module is tappable to
+ * browse; nothing is locked.
  */
-export function PathScreen({ path, onOpenHere, onBack }: Props) {
+export function PathScreen({ path, onSelectModule, onBack }: Props) {
   const { c } = useTheme();
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]} edges={['top', 'bottom']}>
@@ -26,20 +27,16 @@ export function PathScreen({ path, onOpenHere, onBack }: Props) {
         <Text style={[styles.mirror, { color: c.dim }]}>
           Wander where you like — start where you are or wander back. Nothing is timed, nothing locks.
         </Text>
-        {path.modules.map((m) =>
-          m.state === 'here' ? (
-            <Pressable
-              key={m.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${m.title}, you're here`}
-              onPress={onOpenHere}
-            >
-              <ModuleCard module={m} />
-            </Pressable>
-          ) : (
-            <ModuleCard key={m.id} module={m} />
-          ),
-        )}
+        {path.modules.map((m) => (
+          <Pressable
+            key={m.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${m.title}, ${m.state === 'here' ? "you're here" : m.state}`}
+            onPress={() => onSelectModule(m)}
+          >
+            <ModuleCard module={m} />
+          </Pressable>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
