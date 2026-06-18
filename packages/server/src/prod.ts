@@ -18,7 +18,15 @@ import {
   type AnthropicClientLike,
   type AnthropicProviderOptions,
 } from '@suara/providers';
-import type { ASRProvider, LangCode, LanguageConfig, PronunciationProvider, TTSProvider } from '@suara/core';
+import { loadCurriculum } from '@suara/curriculum';
+import type {
+  ASRProvider,
+  CurriculumGraph,
+  LangCode,
+  LanguageConfig,
+  PronunciationProvider,
+  TTSProvider,
+} from '@suara/core';
 import { assembleTurnDeps } from './compose';
 import { isSupportedLang, languageConfig, type VoiceIds } from './config/languages';
 import { MeteredASRProvider, MeteredPronunciationProvider, MeteredTTSProvider, type UsageMeter } from './cost/meter';
@@ -133,7 +141,8 @@ export function createTurnHandlerDeps(
  * LanguageConfig/mode, never `if (lang === ...)`.
  */
 export interface LanguageRouter {
-  resolve(lang: string | undefined): TurnHandlerDeps;
+  /** Pass a per-request meter to tally that turn's cost (the spend indicator). */
+  resolve(lang: string | undefined, meter?: UsageMeter): TurnHandlerDeps;
 }
 
 export function createLanguageRouter(
@@ -143,35 +152,50 @@ export function createLanguageRouter(
 ): LanguageRouter {
   const db = createDb(required(env, 'DATABASE_URL'));
   const client = new Anthropic() as unknown as AnthropicClientLike;
-  const tts = buildTts(env);
-  const asr = buildAsr(env);
+  const baseTts = buildTts(env);
+  const baseAsr = buildAsr(env);
   const store = new DrizzleLearnerStore(db);
   const pending = new DrizzlePendingTurnStore(db); // shared: keyed by turnId, not language
   const defaultLang: LangCode = opts.defaultLang ?? 'cmn';
-  const cache = new Map<LangCode, TurnHandlerDeps>();
+  // Cache the per-language config + (JSON-parsed) curriculum graph. The brain and the
+  // (optionally metered) providers are built per request so each turn's cost is tallied
+  // in isolation — a shared meter would mix concurrent users together.
+  const parts = new Map<LangCode, { config: LanguageConfig; graph: CurriculumGraph }>();
 
-  function build(lang: LangCode): TurnHandlerDeps {
-    const config = languageConfig(lang, voices);
-    const deps = assembleTurnDeps({
-      config,
-      store,
-      llm: new AnthropicProvider({ config, client }),
-      tts,
-      asr,
-      pronunciation: buildPronunciation(config, env),
-    });
-    return { deps, pending };
+  function partsFor(code: LangCode) {
+    let p = parts.get(code);
+    if (!p) {
+      p = { config: languageConfig(code, voices), graph: loadCurriculum(code) };
+      parts.set(code, p);
+    }
+    return p;
   }
 
   return {
-    resolve(lang) {
+    resolve(lang, meter) {
       const code: LangCode = lang && isSupportedLang(lang) ? lang : defaultLang;
-      let h = cache.get(code);
-      if (!h) {
-        h = build(code);
-        cache.set(code, h);
+      const { config, graph } = partsFor(code);
+
+      const llmOpts: AnthropicProviderOptions = { config, client };
+      if (meter) {
+        llmOpts.onUsage = (model, usage) =>
+          meter.llm(model, {
+            input: usage?.input_tokens,
+            output: usage?.output_tokens,
+            cacheRead: usage?.cache_read_input_tokens,
+          });
       }
-      return h;
+      const pron = buildPronunciation(config, env);
+      const deps = assembleTurnDeps({
+        config,
+        store,
+        graph,
+        llm: new AnthropicProvider(llmOpts),
+        tts: meter ? new MeteredTTSProvider(baseTts, meter) : baseTts,
+        asr: meter ? new MeteredASRProvider(baseAsr, meter) : baseAsr,
+        pronunciation: meter ? new MeteredPronunciationProvider(pron, meter) : pron,
+      });
+      return { deps, pending };
     },
   };
 }

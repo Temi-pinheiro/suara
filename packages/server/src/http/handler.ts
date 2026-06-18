@@ -12,6 +12,8 @@
 
 import type { AudioBlob } from '@suara/core';
 import { attemptHandler, planTurnHandler, type TurnHandlerDeps } from '../turn/handlers';
+import { UsageMeter } from '../cost/meter';
+import { estimateCost } from '../cost/pricing';
 
 export class UnauthorizedError extends Error {}
 
@@ -36,10 +38,20 @@ export type HttpHandler = (req: Request) => Promise<Response>;
  * `x-suara-lang` (the picker / runtime language switching). The client sends the same
  * language on plan + attempt, so the pair stays consistent.
  */
-export type DepsSource = TurnHandlerDeps | ((lang: string | undefined) => TurnHandlerDeps);
+export type DepsSource =
+  | TurnHandlerDeps
+  | ((lang: string | undefined, meter?: UsageMeter) => TurnHandlerDeps);
+
+/** Fold this call's tallied cost into the response (the client accumulates it). */
+function withCost<T extends { costUsd?: number }>(dto: T, meter?: UsageMeter): T {
+  if (meter) dto.costUsd = Math.round(estimateCost(meter.usage).totalUsd * 1e5) / 1e5;
+  return dto;
+}
 
 export function createHttpHandler(deps: DepsSource, opts: HttpHandlerOptions): HttpHandler {
-  const resolve = typeof deps === 'function' ? deps : () => deps;
+  // A resolver lets us meter each request in isolation; a single deps (tests) is unmetered.
+  const isResolver = typeof deps === 'function';
+  const resolve = isResolver ? deps : () => deps;
   const cors: Record<string, string> = {
     'access-control-allow-origin': opts.corsOrigin ?? '*',
     'access-control-allow-headers': 'authorization, content-type, x-user-id, x-suara-lang',
@@ -54,10 +66,11 @@ export function createHttpHandler(deps: DepsSource, opts: HttpHandlerOptions): H
     const path = new URL(req.url).pathname.replace(/\/+$/, '');
     try {
       const userId = await opts.authenticate(req);
-      const deps = resolve(req.headers.get('x-suara-lang') ?? undefined);
+      const meter = isResolver ? new UsageMeter() : undefined;
+      const turnDeps = resolve(req.headers.get('x-suara-lang') ?? undefined, meter);
 
       if (req.method === 'POST' && path.endsWith('/turn/plan')) {
-        return json(200, await planTurnHandler(deps, { userId }));
+        return json(200, withCost(await planTurnHandler(turnDeps, { userId }), meter));
       }
 
       const attempt = path.match(/\/turn\/([^/]+)\/attempt$/);
@@ -67,7 +80,7 @@ export function createHttpHandler(deps: DepsSource, opts: HttpHandlerOptions): H
           bytes: new Uint8Array(await req.arrayBuffer()),
           mimeType: req.headers.get('content-type') ?? 'audio/wav',
         };
-        return json(200, await attemptHandler(deps, { turnId, audio }));
+        return json(200, withCost(await attemptHandler(turnDeps, { turnId, audio }), meter));
       }
 
       return json(404, { error: 'not found' });

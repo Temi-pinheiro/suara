@@ -33,6 +33,8 @@ export interface PromptPacket {
   teach?: TeachBlock;
   /** present on recombine turns: the owned pieces being combined (never the answer) */
   pieces?: PromptPiece[];
+  /** approx USD cost of this call — accumulated into the session spend indicator */
+  costUsd?: number;
   /**
    * The target answer — construct-first, so the real server OMITS this before the
    * attempt (the learner must build it). The mock provides it for convenience; the
@@ -56,6 +58,8 @@ export interface AttemptResult {
   decision: 'advance' | 'rebuild' | 'ease';
   /** tone to coach this turn (drives the audio-native tone scaffold), if any */
   toneFocus?: string;
+  /** approx USD cost of this call — accumulated into the session spend indicator */
+  costUsd?: number;
 }
 
 export interface SessionApi {

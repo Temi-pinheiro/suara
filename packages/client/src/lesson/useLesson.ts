@@ -25,6 +25,12 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
   // Drives the Listen button's "Playing…" state. Not in the reducer because it's
   // pure UI affordance, not a lesson transition.
   const [playing, setPlaying] = useState(false);
+  // Running session spend (USD), accumulated from each call's reported cost. In-memory
+  // only (CLAUDE.md §6) — resets when the lesson is left and re-entered.
+  const [spend, setSpend] = useState(0);
+  const addSpend = (usd: number | undefined) => {
+    if (usd) setSpend((s) => s + usd);
+  };
 
   // Play a clip without ever wedging the turn. A clip that won't load (autoplay
   // blocked on web, unreachable URL) is logged, not fatal — the learner can retry
@@ -48,6 +54,7 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
     dispatch({ type: 'LOAD' });
     try {
       const prompt = await api.nextPrompt();
+      addSpend(prompt.costUsd);
       dispatch({ type: 'PROMPT_READY', prompt });
       // Usable immediately — do NOT await audio. Then try a best-effort autoplay of
       // the model (introduce) or the setup; if the browser blocks it, the learner
@@ -81,6 +88,7 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
       const rec = await audio.stopRecording();
       dispatch({ type: 'SUBMIT', audio: rec });
       const result = await api.submitAttempt(turnId, rec);
+      addSpend(result.costUsd);
       dispatch({ type: 'SCORED', result });
       // Reveal the model AFTER the attempt — best-effort; the learner replays it
       // and advances by tapping, so they can read the cue at their own pace.
@@ -112,5 +120,5 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
   // turns are single-use (`pending.take` consumes them), so the same turn can't be
   // resubmitted; a missed block is re-surfaced by the invisible SRS on a later turn
   // (an MT invariant), not by a same-turn replay.
-  return { state, playing, speak, stopAndSubmit, replay, reload: load };
+  return { state, playing, spend, speak, stopAndSubmit, replay, reload: load };
 }

@@ -104,8 +104,9 @@ describe('createHttpHandler', () => {
     const jpnH = mk('jpn-turn');
     const handle = createHttpHandler((lang) => (lang === 'jpn' ? jpnH : cmnH), { authenticate: devHeaderAuth });
 
-    const def = await handle(post('/turn/plan')); // no header → default deps
-    expect(((await def.json()) as { turnId: string }).turnId).toBe('cmn-turn');
+    const def = (await (await handle(post('/turn/plan'))).json()) as { turnId: string; costUsd?: number };
+    expect(def.turnId).toBe('cmn-turn'); // no header → default deps
+    expect(typeof def.costUsd).toBe('number'); // resolver path is metered (the spend field)
 
     const jp = await handle(post('/turn/plan', { headers: { 'x-user-id': 'u1', 'x-suara-lang': 'jpn' } }));
     expect(((await jp.json()) as { turnId: string }).turnId).toBe('jpn-turn');

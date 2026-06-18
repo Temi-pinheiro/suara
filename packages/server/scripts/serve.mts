@@ -45,7 +45,9 @@ const router = createLanguageRouter(
   { defaultLang: LANG },
 );
 
-const handle = createHttpHandler((lang) => router.resolve(lang), { authenticate: devHeaderAuth });
+const handle = createHttpHandler((lang, meter) => router.resolve(lang, meter), {
+  authenticate: devHeaderAuth,
+});
 const PORT = Number(process.env.PORT ?? 8787);
 
 createServer(async (req, res) => {

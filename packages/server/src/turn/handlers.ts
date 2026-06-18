@@ -44,6 +44,8 @@ export interface PromptPacketDto {
   /** on `recombine` turns — the owned pieces being combined (NOT the answer) */
   pieces?: PieceDto[];
   classmateAudioUrl?: string;
+  /** approx USD cost of producing this call (the spend indicator); set by the http layer */
+  costUsd?: number;
 }
 
 export interface AttemptRequest {
@@ -64,6 +66,8 @@ export interface AttemptResultDto {
   decision: 'advance' | 'rebuild' | 'ease';
   /** tone to coach (drives the client's tone scaffold), if the brain logged one */
   toneFocus?: string;
+  /** approx USD cost of producing this call (the spend indicator); set by the http layer */
+  costUsd?: number;
 }
 
 export interface TurnHandlerDeps {

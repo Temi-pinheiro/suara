@@ -200,7 +200,7 @@ export function Chip({ label, roman, fresh = false }: { label: string; roman?: s
 // Chrome
 // ---------------------------------------------------------------------------
 
-export function Topbar({ title, onClose }: { title: string; onClose?: () => void }) {
+export function Topbar({ title, onClose, spend }: { title: string; onClose?: () => void; spend?: number }) {
   const { c } = useTheme();
   return (
     <View style={styles.topbar}>
@@ -214,7 +214,13 @@ export function Topbar({ title, onClose }: { title: string; onClose?: () => void
         {onClose ? <Ionicons name="close" size={20} color={c.dim} /> : null}
       </Pressable>
       <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{title}</Text>
-      <View style={styles.topbarX} />
+      <View style={styles.topbarSpend}>
+        {spend !== undefined ? (
+          <Text style={{ fontSize: 13, fontWeight: '600', color: c.faint, fontVariant: ['tabular-nums'] }}>
+            ${spend.toFixed(2)}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -399,6 +405,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   topbarX: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  topbarSpend: { minWidth: 40, height: 40, alignItems: 'flex-end', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22, paddingHorizontal: 40 },
   spinner: { width: 46, height: 46, borderRadius: 23, borderWidth: 3 },
   orb: { width: 92, height: 92, borderRadius: 46, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

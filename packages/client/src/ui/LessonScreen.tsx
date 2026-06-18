@@ -35,7 +35,7 @@ const VERDICT_LINE = { correct: 'That’s it.', close: 'Almost.', off: 'Not quit
  */
 export function LessonScreen({ api, audio, title = 'Mandarin', onExit }: Props) {
   const { c } = useTheme();
-  const { state, playing, speak, stopAndSubmit, replay, reload } = useLesson(api, audio);
+  const { state, playing, spend, speak, stopAndSubmit, replay, reload } = useLesson(api, audio);
   const { phase, prompt, attempt } = state;
 
   const introduce = !!prompt?.teach;
@@ -70,7 +70,7 @@ export function LessonScreen({ api, audio, title = 'Mandarin', onExit }: Props) 
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]} edges={['top', 'bottom']}>
-      <Topbar title={title} onClose={onExit} />
+      <Topbar title={title} onClose={onExit} spend={spend} />
 
       <View style={styles.body}>
         {phase === 'scoring' ? (
