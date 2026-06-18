@@ -1,187 +1,163 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SessionApi } from '../api/types';
 import type { AudioIO } from '../audio/types';
 import { useLesson } from '../lesson/useLesson';
 import { SpeakButton } from './SpeakButton';
 import { ToneCue } from './ToneCue';
+import {
+  Button,
+  CenterState,
+  EchoBubble,
+  FeedbackCard,
+  Spinner,
+  ThinkOrb,
+  Topbar,
+  WordCard,
+} from './primitives';
+import { space, type, useTheme } from './theme';
 
 interface Props {
   api: SessionApi;
   audio: AudioIO;
+  /** language label for the topbar (the client isn't told the code; defaults to launch lang) */
+  title?: string;
+  onExit?: () => void;
 }
 
+const VERDICT_LINE = { correct: 'That’s it.', close: 'Almost.', off: 'Not quite.' } as const;
+
 /**
- * The whole app is one screen: hear the setup, build & speak, hear the model + a
- * warm cue. Audio is learner-initiated (Listen) so it works under browser autoplay
- * rules, and advancing is an explicit tap — never a timer. Fully operable by voice.
+ * The lesson, one self-paced turn at a time (design pass). Audio is learner-initiated
+ * (Listen / mic), the model is revealed only after the attempt, and advancing is an
+ * explicit tap — the same MT invariants, now in the warm teal "live-voice" system.
  */
-export function LessonScreen({ api, audio }: Props) {
-  const { state, playing, speak, stopAndSubmit, replay, advance, reload } = useLesson(api, audio);
+export function LessonScreen({ api, audio, title = 'Mandarin', onExit }: Props) {
+  const { c } = useTheme();
+  const { state, playing, speak, stopAndSubmit, replay, reload } = useLesson(api, audio);
   const { phase, prompt, attempt } = state;
 
-  const isFeedback = phase === 'feedback';
-  const showContent = !!prompt && phase !== 'loading' && phase !== 'error';
+  const introduce = !!prompt?.teach;
+  const loading = phase === 'idle' || phase === 'loading' || (phase === 'prompting' && !prompt);
+  const awaitingLike = phase === 'awaiting' || phase === 'prompting';
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]} edges={['top', 'bottom']}>
+        <CenterState msg="Setting up your lesson…">
+          <Spinner />
+        </CenterState>
+      </SafeAreaView>
+    );
+  }
+
+  if (phase === 'error') {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]} edges={['top', 'bottom']}>
+        <View style={styles.errCenter}>
+          <View style={[styles.mutedOrb, { backgroundColor: c.cream, borderColor: c.stroke }]}>
+            <Text style={{ color: c.faint, fontSize: 24, letterSpacing: 5 }}>···</Text>
+          </View>
+          <Text style={[type.msg, { color: c.dim, textAlign: 'center' }]}>
+            Something hiccupped on our side — your place is saved.
+          </Text>
+          <Button label="Try again" onPress={reload} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-      <Text style={styles.wordmark}>suara</Text>
+    <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]} edges={['top', 'bottom']}>
+      <Topbar title={title} onClose={onExit} />
 
       <View style={styles.body}>
-        {phase === 'loading' && (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color="#3A6EA5" />
-            <Text style={styles.muted}>Setting up your lesson…</Text>
-          </View>
-        )}
-
-        {phase === 'error' && (
-          <View style={styles.errorBox}>
-            <Text style={styles.error}>Something hiccupped: {state.error}</Text>
-            <Pressable accessibilityRole="button" onPress={reload} style={styles.primary}>
-              <Text style={styles.primaryLabel}>Try again</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {showContent && (
+        {phase === 'scoring' ? (
+          <CenterState msg="Listening to what you said…">
+            <ThinkOrb />
+          </CenterState>
+        ) : (
           <>
-            {/* L1 setup — the spoken instruction, shown as a visual aid */}
-            <Text style={styles.setup}>{prompt.englishSetup}</Text>
+            {/* introduce → ambient narration; recombine → the build cue */}
+            <Text style={[introduce ? type.narration : type.cue, { color: introduce ? c.narration : c.dim }]}>
+              {prompt?.englishSetup}
+            </Text>
 
-            {/* introduce: the new block to hear + see before producing it */}
-            {prompt.teach && (
-              <View style={styles.card}>
-                <Text style={styles.hanzi}>{prompt.teach.surface}</Text>
-                {prompt.teach.pinyin ? <Text style={styles.pinyin}>{prompt.teach.pinyin}</Text> : null}
-              </View>
+            {introduce && prompt?.teach && (awaitingLike || phase === 'recording') && (
+              <WordCard
+                word={prompt.teach.surface}
+                roman={prompt.teach.pinyin}
+                onListen={replay}
+                playing={playing}
+              />
             )}
 
-            {/* warm correction — revealed only after the attempt, never a score */}
-            {isFeedback && attempt && (
-              <View style={[styles.feedbackCard, accentFor(attempt.verdict)]}>
-                <Text style={styles.correction}>{attempt.correction}</Text>
-              </View>
-            )}
-
-            {isFeedback && attempt?.toneFocus && <ToneCue tone={attempt.toneFocus} />}
-
-            {/* learner-initiated audio — reliable under autoplay rules */}
-            <Pressable
-              accessibilityRole="button"
-              disabled={playing}
-              onPress={replay}
-              style={({ pressed }) => [styles.listen, pressed && styles.listenPressed, playing && styles.listenPlaying]}
-            >
-              <Text style={styles.listenLabel}>
-                {playing ? '🔊  Playing…' : isFeedback ? '🔊  Hear it again' : '🔊  Listen'}
+            {!introduce && awaitingLike && (
+              <Text style={[type.narration, { color: c.narration }]}>
+                The answer stays hidden until you’ve tried — take your time.
               </Text>
-            </Pressable>
+            )}
+
+            <View style={styles.grow} />
+
+            {phase === 'recording' && <EchoBubble text="listening…" pending />}
+
+            {phase === 'feedback' && attempt && (
+              <>
+                <FeedbackCard
+                  verdict={attempt.verdict}
+                  verdictLine={VERDICT_LINE[attempt.verdict]}
+                  note={attempt.correction}
+                  modelWord={introduce ? prompt?.teach?.surface : undefined}
+                  modelRoman={introduce ? prompt?.teach?.pinyin : undefined}
+                  onListen={replay}
+                  playing={playing}
+                />
+                {attempt.toneFocus ? <ToneCue tone={attempt.toneFocus} /> : null}
+              </>
+            )}
           </>
         )}
       </View>
 
       <View style={styles.footer}>
-        {(phase === 'awaiting' || phase === 'recording') && (
-          <SpeakButton phase={phase} onSpeak={speak} onStop={stopAndSubmit} />
-        )}
-
-        {phase === 'scoring' && (
-          <View style={styles.center}>
-            <ActivityIndicator color="#3A6EA5" />
-            <Text style={styles.muted}>Listening to what you said…</Text>
-          </View>
-        )}
-
-        {isFeedback && attempt && (
-          <Pressable accessibilityRole="button" onPress={advance} style={styles.primary}>
-            <Text style={styles.primaryLabel}>
-              {attempt.decision === 'rebuild' ? 'Try once more' : 'Continue'}
+        {awaitingLike && (
+          <>
+            <View style={styles.micRow}>
+              <SpeakButton state="idle" onPress={speak} />
+            </View>
+            <Text style={[type.helper, styles.helper, { color: c.faint }]}>
+              {introduce ? 'Tap to speak — there’s no rush' : 'Tap to speak when you’ve built it'}
             </Text>
-          </Pressable>
+          </>
+        )}
+
+        {phase === 'recording' && (
+          <>
+            <Text style={[type.helper, styles.helper, { color: c.live, fontWeight: '600' }]}>
+              Live — say it your way, finish when you’re done
+            </Text>
+            <View style={styles.micRow}>
+              <SpeakButton state="live" onPress={stopAndSubmit} />
+            </View>
+          </>
+        )}
+
+        {phase === 'feedback' && attempt && (
+          <Button label={attempt.verdict === 'correct' ? 'Continue' : 'Try once more'} onPress={reload} />
         )}
       </View>
     </SafeAreaView>
   );
 }
 
-/** Soft, warm accent bar by verdict — a feeling, not a grade (CLAUDE.md §2/§6). */
-function accentFor(verdict: 'correct' | 'close' | 'off') {
-  switch (verdict) {
-    case 'correct':
-      return { borderLeftColor: '#3E9E7E' };
-    case 'close':
-      return { borderLeftColor: '#C8862B' };
-    default:
-      return { borderLeftColor: '#3A6EA5' };
-  }
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#FAF8F3' },
-  wordmark: {
-    fontSize: 15,
-    letterSpacing: 4,
-    color: '#B6AFA0',
-    textAlign: 'center',
-    marginTop: 8,
-    textTransform: 'lowercase',
-  },
-  body: { flex: 1, paddingHorizontal: 28, justifyContent: 'center', alignItems: 'center', gap: 18 },
-  center: { alignItems: 'center', gap: 12 },
-  muted: { fontSize: 15, color: '#6A6A6A' },
-
-  setup: { fontSize: 23, lineHeight: 32, textAlign: 'center', color: '#2B2B2B', fontWeight: '500' },
-
-  card: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    paddingVertical: 28,
-    paddingHorizontal: 20,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  hanzi: { fontSize: 72, color: '#2B2B2B', fontWeight: '500' },
-  pinyin: { fontSize: 26, color: '#3A6EA5' },
-
-  feedbackCard: {
-    alignSelf: 'stretch',
-    backgroundColor: 'white',
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
-  },
-  correction: { fontSize: 18, lineHeight: 26, color: '#2B2B2B' },
-
-  listen: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    backgroundColor: '#EFEBE1',
-    borderWidth: 1,
-    borderColor: '#E0DACB',
-  },
-  listenPressed: { opacity: 0.7 },
-  listenPlaying: { opacity: 0.6 },
-  listenLabel: { fontSize: 16, color: '#5A5345', fontWeight: '600' },
-
-  errorBox: { alignItems: 'center', gap: 16, paddingHorizontal: 28 },
-  error: { fontSize: 15, color: '#B5524B', textAlign: 'center' },
-
-  footer: { alignItems: 'center', paddingBottom: 40, minHeight: 180, justifyContent: 'center' },
-  primary: { paddingVertical: 16, paddingHorizontal: 44, borderRadius: 28, backgroundColor: '#3A6EA5' },
-  primaryLabel: { color: 'white', fontSize: 17, fontWeight: '600' },
+  screen: { flex: 1 },
+  body: { flex: 1, paddingHorizontal: space.h, paddingTop: space.sm, gap: space.xxl },
+  grow: { flex: 1 },
+  footer: { paddingHorizontal: space.h, paddingTop: space.xl, paddingBottom: space.hero, gap: space.lg },
+  micRow: { alignItems: 'center' },
+  helper: { textAlign: 'center' },
+  errCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20, paddingHorizontal: 40 },
+  mutedOrb: { width: 92, height: 92, borderRadius: 46, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 });

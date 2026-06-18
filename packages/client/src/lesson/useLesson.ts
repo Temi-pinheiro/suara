@@ -102,21 +102,15 @@ export function useLesson(api: SessionApi, audio: AudioIO) {
     void safePlay(url);
   }, [safePlay]);
 
-  // Continue / Try again from feedback — explicit, learner-paced. rebuild retries
-  // the same prompt; advance/ease load the next turn.
-  const advance = useCallback(async () => {
-    const s = stateRef.current;
-    if (s.phase !== 'feedback') return;
-    const decision = s.attempt?.decision;
-    dispatch({ type: 'FEEDBACK_PLAYED' });
-    if (decision !== 'rebuild') await load();
-  }, [load]);
-
   useEffect(() => {
     void load();
     // load is only ever called once on mount here; reload() re-runs it explicitly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { state, playing, speak, stopAndSubmit, replay, advance, reload: load };
+  // From feedback, "Continue / Try once more" always fetches the NEXT turn. Server
+  // turns are single-use (`pending.take` consumes them), so the same turn can't be
+  // resubmitted; a missed block is re-surfaced by the invisible SRS on a later turn
+  // (an MT invariant), not by a same-turn replay.
+  return { state, playing, speak, stopAndSubmit, replay, reload: load };
 }
