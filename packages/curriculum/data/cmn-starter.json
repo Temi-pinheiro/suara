@@ -51,5 +51,16 @@
     { "id": "c48", "kind": "function", "surface": "们 (men)", "gloss_en": "plural for people", "expected_tones": "0", "prereq_ids": ["c06"], "recomb_hint": "我们 / 你们" },
     { "id": "c49", "kind": "word", "surface": "朋友 (péngyou)", "gloss_en": "friend", "expected_tones": "2-0", "prereq_ids": ["c19"], "recomb_hint": "我的朋友" },
     { "id": "c50", "kind": "word", "surface": "一起 (yìqǐ)", "gloss_en": "together", "expected_tones": "4-3", "prereq_ids": ["c13"], "recomb_hint": "我们一起去 (一 sandhi → yìqǐ)" }
+  ],
+  "modules": [
+    { "id": "m1", "title": "I want a drink", "componentIds": ["c01", "c02", "c03", "c04", "c05"] },
+    { "id": "m2", "title": "You, and yes-or-no", "componentIds": ["c06", "c07", "c08"] },
+    { "id": "m3", "title": "Would like to…", "componentIds": ["c09", "c10", "c11", "c12", "c13"] },
+    { "id": "m4", "title": "What and where", "componentIds": ["c14", "c15"] },
+    { "id": "m5", "title": "This, that, and \"to be\"", "componentIds": ["c16", "c17", "c18", "c19"] },
+    { "id": "m6", "title": "Joining your ideas", "componentIds": ["c20", "c21", "c22", "c23"] },
+    { "id": "m7", "title": "Can, a little, and having", "componentIds": ["c24", "c25", "c26", "c27", "c28", "c29", "c30"] },
+    { "id": "m8", "title": "Talking and languages", "componentIds": ["c31", "c32", "c33", "c34", "c35", "c36", "c37", "c38", "c39", "c40"] },
+    { "id": "m9", "title": "Out and about", "componentIds": ["c41", "c42", "c43", "c44", "c45", "c46", "c47", "c48", "c49", "c50"] }
   ]
 }

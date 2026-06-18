@@ -86,6 +86,15 @@ describe('createHttpHandler', () => {
     expect(res.status).toBe(404);
   });
 
+  it('serves the path overview on GET /path', async () => {
+    const handle = handler();
+    const res = await handle(new Request('http://x/path', { method: 'GET', headers: { 'x-user-id': 'u1' } }));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { modules: { state: string }[] };
+    expect(Array.isArray(body.modules)).toBe(true);
+    expect(body.modules.length).toBeGreaterThan(0);
+  });
+
   it('routes by the x-suara-lang header, falling back to the default (the picker)', async () => {
     const mk = (id: string): TurnHandlerDeps => ({
       deps: assembleTurnDeps({

@@ -11,7 +11,7 @@ import {
 } from '@suara/providers';
 import type { Component, LanguageConfig } from '@suara/core';
 import { assembleTurnDeps, pronunciationFor } from '../compose';
-import { attemptHandler, planTurnHandler, type TurnHandlerDeps } from './handlers';
+import { attemptHandler, pathHandler, planTurnHandler, type TurnHandlerDeps } from './handlers';
 import { InMemoryPendingTurnStore } from './pending';
 
 const clock = () => 1_700_000_000_000;
@@ -100,6 +100,17 @@ describe('turn handlers — two-phase HTTP turn', () => {
     await expect(attemptHandler(h, { turnId: 'nope', audio: spokenAudio('x') })).rejects.toThrow(
       /unknown or already-used/,
     );
+  });
+
+  it('builds the path overview from module progress (never a score)', async () => {
+    const { h } = cmnHandlers();
+    const path = await pathHandler(h, { userId: 'u-path' });
+
+    expect(path.modules.length).toBeGreaterThan(0);
+    // a brand-new learner: the first module holds the current block, the rest are ahead
+    expect(path.modules[0]!.state).toBe('here');
+    expect(path.modules[0]!.pieces[0]).toMatchObject({ surface: '我', owned: false, current: true });
+    expect(path.modules.slice(1).every((m) => m.state === 'ahead')).toBe(true);
   });
 });
 

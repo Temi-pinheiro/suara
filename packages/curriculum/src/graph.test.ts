@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { LearnerState } from '@suara/core';
-import { availableLanguages, loadComponents, loadCurriculum } from './index';
+import { availableLanguages, loadComponents, loadCurriculum, loadModules } from './index';
 
 const langs = availableLanguages();
 
@@ -64,6 +64,23 @@ describe('curriculum graphs (all languages)', () => {
         }
         expect(known.size).toBe(components.length);
       });
+
+      // Modules are optional per language; when present they must tile the graph cleanly.
+      const modules = loadModules(lang);
+      if (modules.length > 0) {
+        it('groups every component into exactly one module (no gaps, no overlaps)', () => {
+          const seen = new Set<string>();
+          for (const m of modules) {
+            expect(m.title.trim().length).toBeGreaterThan(0);
+            for (const cid of m.componentIds) {
+              expect(index.has(cid)).toBe(true); // references a real component
+              expect(seen.has(cid)).toBe(false); // no component in two modules
+              seen.add(cid);
+            }
+          }
+          expect(seen.size).toBe(ids.length); // every component is covered
+        });
+      }
     });
   }
 });

@@ -12,6 +12,7 @@
 import { randomUUID } from 'node:crypto';
 import { completeTurn, planTurn, splitSurface, type TurnDeps } from '@suara/core';
 import type { AudioBlob } from '@suara/core';
+import { loadComponents, loadModules } from '@suara/curriculum';
 import type { PendingTurnStore } from './pending';
 
 export interface PlanRequest {
@@ -148,4 +149,61 @@ export async function attemptHandler(h: TurnHandlerDeps, req: AttemptRequest): P
   if (target.pinyin) dto.modelPinyin = target.pinyin;
   if (toneFocus) dto.toneFocus = toneFocus;
   return dto;
+}
+
+// --- Path overview (module progress) ---------------------------------------
+
+export interface PiecePathDto {
+  surface: string;
+  roman?: string;
+  /** the learner already has this block */
+  owned: boolean;
+  /** the block the next lesson will work on */
+  current: boolean;
+}
+
+export interface ModulePathDto {
+  id: string;
+  title: string;
+  /** done = all owned · here = in progress / holds the current block · ahead = none yet */
+  state: 'done' | 'here' | 'ahead';
+  pieces: PiecePathDto[];
+}
+
+export interface PathDto {
+  modules: ModulePathDto[];
+}
+
+/**
+ * The learner's path: curriculum modules with per-block ownership, derived from the
+ * invisible SRS state (never a score). Languages without authored modules return an
+ * empty list (the client then goes straight to the lesson).
+ */
+export async function pathHandler(h: TurnHandlerDeps, req: PlanRequest): Promise<PathDto> {
+  const lang = h.deps.config.code;
+  const state = await h.deps.store.getState(req.userId, lang);
+  const known = new Set(state.known);
+  const current = h.deps.graph.nextUnlocked(state)[0]?.id;
+  const byId = new Map(loadComponents(lang).map((comp) => [comp.id, comp]));
+
+  const modules: ModulePathDto[] = loadModules(lang).map((m) => {
+    const pieces: PiecePathDto[] = m.componentIds.flatMap((id) => {
+      const comp = byId.get(id);
+      if (!comp) return [];
+      const { surface, pinyin } = splitSurface(comp.surface);
+      const piece: PiecePathDto = { surface, owned: known.has(id), current: id === current };
+      if (pinyin) piece.roman = pinyin;
+      return [piece];
+    });
+    const ownedCount = pieces.filter((p) => p.owned).length;
+    const mstate: ModulePathDto['state'] =
+      pieces.length > 0 && ownedCount === pieces.length
+        ? 'done'
+        : ownedCount > 0 || pieces.some((p) => p.current)
+          ? 'here'
+          : 'ahead';
+    return { id: m.id, title: m.title, state: mstate, pieces };
+  });
+
+  return { modules };
 }

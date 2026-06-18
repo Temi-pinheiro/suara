@@ -10,7 +10,7 @@
  */
 
 import type { AudioBlobRef } from '../audio/types';
-import type { AttemptResult, PromptPacket, SessionApi } from './types';
+import type { AttemptResult, PathView, PromptPacket, SessionApi } from './types';
 
 export interface HttpSessionApiOptions {
   baseUrl: string;
@@ -32,6 +32,12 @@ export class HttpSessionApi implements SessionApi {
 
   private headers(extra: Record<string, string> = {}): Record<string, string> {
     return { 'x-user-id': this.userId, ...(this.lang ? { 'x-suara-lang': this.lang } : {}), ...extra };
+  }
+
+  async getPath(): Promise<PathView> {
+    const res = await fetch(`${this.base}/path`, { method: 'GET', headers: this.headers() });
+    if (!res.ok) throw new Error(`path failed: ${res.status}`);
+    return (await res.json()) as PathView;
   }
 
   async nextPrompt(): Promise<PromptPacket> {

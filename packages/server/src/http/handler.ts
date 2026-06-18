@@ -11,7 +11,7 @@
  */
 
 import type { AudioBlob } from '@suara/core';
-import { attemptHandler, planTurnHandler, type TurnHandlerDeps } from '../turn/handlers';
+import { attemptHandler, pathHandler, planTurnHandler, type TurnHandlerDeps } from '../turn/handlers';
 import { UsageMeter } from '../cost/meter';
 import { estimateCost } from '../cost/pricing';
 
@@ -55,7 +55,7 @@ export function createHttpHandler(deps: DepsSource, opts: HttpHandlerOptions): H
   const cors: Record<string, string> = {
     'access-control-allow-origin': opts.corsOrigin ?? '*',
     'access-control-allow-headers': 'authorization, content-type, x-user-id, x-suara-lang',
-    'access-control-allow-methods': 'POST, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
   };
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...cors } });
@@ -68,6 +68,10 @@ export function createHttpHandler(deps: DepsSource, opts: HttpHandlerOptions): H
       const userId = await opts.authenticate(req);
       const meter = isResolver ? new UsageMeter() : undefined;
       const turnDeps = resolve(req.headers.get('x-suara-lang') ?? undefined, meter);
+
+      if (req.method === 'GET' && path.endsWith('/path')) {
+        return json(200, await pathHandler(turnDeps, { userId }));
+      }
 
       if (req.method === 'POST' && path.endsWith('/turn/plan')) {
         return json(200, withCost(await planTurnHandler(turnDeps, { userId }), meter));

@@ -196,6 +196,49 @@ export function Chip({ label, roman, fresh = false }: { label: string; roman?: s
   );
 }
 
+/** Module state dot for the path: done (✓), here (ringed), ahead (hollow). */
+export function ModuleDot({ state }: { state: 'done' | 'here' | 'ahead' }) {
+  const { c } = useTheme();
+  if (state === 'done') {
+    return (
+      <View style={[styles.mdot, { backgroundColor: c.primary }]}>
+        <Ionicons name="checkmark" size={16} color={c.onPrimary} />
+      </View>
+    );
+  }
+  if (state === 'here') {
+    return (
+      <View style={[styles.mdot, { backgroundColor: c.wash, borderWidth: 2, borderColor: c.primary }]}>
+        <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary }} />
+      </View>
+    );
+  }
+  return <View style={[styles.mdot, { borderWidth: 2, borderColor: c.stroke }]} />;
+}
+
+/** A block on the path: current (filled+glow), owned (wash), or ahead (outline). */
+export function PathChip({
+  surface,
+  roman,
+  owned,
+  current,
+}: {
+  surface: string;
+  roman?: string;
+  owned: boolean;
+  current: boolean;
+}) {
+  const { c, shadow } = useTheme();
+  const fill = current ? { backgroundColor: c.primary } : owned ? { backgroundColor: c.wash } : { borderWidth: 1, borderColor: c.stroke };
+  const color = current ? c.onPrimary : owned ? c.primary : c.faint;
+  return (
+    <View style={[styles.pchip, fill, current && shadow.glowLive]}>
+      <Text style={{ fontSize: 15, fontWeight: '600', color }}>{surface}</Text>
+      {roman ? <Text style={{ fontSize: 11, color, opacity: 0.7 }}>{roman}</Text> : null}
+    </View>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Chrome
 // ---------------------------------------------------------------------------
@@ -221,6 +264,18 @@ export function Topbar({ title, onClose, spend }: { title: string; onClose?: () 
           </Text>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+export function Backbar({ title, onBack }: { title: string; onBack?: () => void }) {
+  const { c } = useTheme();
+  return (
+    <View style={styles.backbar}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onBack} style={styles.topbarX} hitSlop={8}>
+        <Ionicons name="chevron-back" size={22} color={c.dim} />
+      </Pressable>
+      <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{title}</Text>
     </View>
   );
 }
@@ -397,6 +452,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  mdot: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  pchip: { height: 30, paddingHorizontal: 11, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 5 },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -406,6 +463,7 @@ const styles = StyleSheet.create({
   },
   topbarX: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   topbarSpend: { minWidth: 40, height: 40, alignItems: 'flex-end', justifyContent: 'center' },
+  backbar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 4 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22, paddingHorizontal: 40 },
   spinner: { width: 46, height: 46, borderRadius: 23, borderWidth: 3 },
   orb: { width: 92, height: 92, borderRadius: 46, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

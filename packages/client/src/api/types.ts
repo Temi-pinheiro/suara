@@ -62,7 +62,28 @@ export interface AttemptResult {
   costUsd?: number;
 }
 
+/** A block on the path overview, with the learner's ownership (never a score). */
+export interface PiecePath {
+  surface: string;
+  roman?: string;
+  owned: boolean;
+  current: boolean;
+}
+
+export interface ModulePath {
+  id: string;
+  title: string;
+  state: 'done' | 'here' | 'ahead';
+  pieces: PiecePath[];
+}
+
+export interface PathView {
+  modules: ModulePath[];
+}
+
 export interface SessionApi {
   nextPrompt(): Promise<PromptPacket>;
   submitAttempt(turnId: string, audio: AudioBlobRef): Promise<AttemptResult>;
+  /** the module path overview (empty modules → the language has none authored yet) */
+  getPath(): Promise<PathView>;
 }

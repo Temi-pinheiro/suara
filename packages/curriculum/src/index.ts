@@ -4,6 +4,7 @@
  */
 
 import type { Component, LangCode } from '@suara/core';
+import type { ModuleSeed } from './types';
 import cmnStarter from '../data/cmn-starter.json';
 import jpnStarter from '../data/jpn-starter.json';
 import korStarter from '../data/kor-starter.json';
@@ -53,4 +54,9 @@ export function loadCurriculum(lang: LangCode, clock?: () => number): DagCurricu
 
 export function availableLanguages(): LangCode[] {
   return Object.keys(SEEDS) as LangCode[];
+}
+
+/** Path modules for a language (the overview grouping). Empty when none are authored. */
+export function loadModules(lang: LangCode): ModuleSeed[] {
+  return SEEDS[lang]?.modules ?? [];
 }
