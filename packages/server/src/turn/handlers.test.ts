@@ -72,6 +72,9 @@ describe('turn handlers — two-phase HTTP turn', () => {
     expect(result.decision).toBe('advance');
     expect(result.verdict).toBe('correct');
     expect(result.modelAudioUrl).toContain('mock://audio/');
+    // the attempt reveals the model + echoes back what the learner said (never graded)
+    expect(result.transcript).toBe('我');
+    expect(result.modelSurface).toBe('我');
 
     const state = await store.getState('u1', 'cmn');
     expect(state.known).toContain('c01'); // persisted through the Drizzle-shaped store interface

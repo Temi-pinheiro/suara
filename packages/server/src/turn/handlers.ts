@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { completeTurn, planTurn, type TurnDeps } from '@suara/core';
+import { completeTurn, planTurn, splitSurface, type TurnDeps } from '@suara/core';
 import type { AudioBlob } from '@suara/core';
 import type { PendingTurnStore } from './pending';
 
@@ -25,6 +25,14 @@ export interface TeachBlockDto {
   modelAudioUrl: string;
 }
 
+/** A block the learner already owns and is weaving in this turn (recombine shelf). */
+export interface PieceDto {
+  surface: string;
+  roman?: string;
+  /** the block being actively built this turn — highlighted */
+  fresh?: boolean;
+}
+
 export interface PromptPacketDto {
   turnId: string;
   action: 'introduce' | 'recombine';
@@ -33,6 +41,8 @@ export interface PromptPacketDto {
   setupAudioUrl: string;
   /** present only on `introduce` turns — the new block to hear/see first */
   teach?: TeachBlockDto;
+  /** on `recombine` turns — the owned pieces being combined (NOT the answer) */
+  pieces?: PieceDto[];
   classmateAudioUrl?: string;
 }
 
@@ -46,6 +56,11 @@ export interface AttemptResultDto {
   verdict: 'correct' | 'close' | 'off';
   correction: string;
   modelAudioUrl: string;
+  /** what the learner actually said (ASR) — shown back as the echo, never a grade */
+  transcript: string;
+  /** the revealed model, in the target script (+ romanization) — shown after the attempt */
+  modelSurface: string;
+  modelPinyin?: string;
   decision: 'advance' | 'rebuild' | 'ease';
   /** tone to coach (drives the client's tone scaffold), if the brain logged one */
   toneFocus?: string;
@@ -82,6 +97,17 @@ export async function planTurnHandler(h: TurnHandlerDeps, req: PlanRequest): Pro
       ? { surface: plan.teach.surface, pinyin: plan.teach.pinyin, modelAudioUrl: plan.teach.model.url ?? '' }
       : { surface: plan.teach.surface, modelAudioUrl: plan.teach.model.url ?? '' };
   }
+  // Recombine shelf: the owned pieces the SRS is weaving in this turn (the honest
+  // progress signal). NOT the answer — just the blocks, with the focus highlighted.
+  if (plan.decision.action === 'recombine' && plan.ctx.recombinationTargets.length > 0) {
+    packet.pieces = plan.ctx.recombinationTargets.map((t) => {
+      const { surface, pinyin } = splitSurface(t.surface);
+      const piece: PieceDto = { surface };
+      if (pinyin) piece.roman = pinyin;
+      if (t.id === plan.decision.focusComponentId) piece.fresh = true;
+      return piece;
+    });
+  }
   if (plan.promptAudio.classmate?.url) {
     packet.classmateAudioUrl = plan.promptAudio.classmate.url;
   }
@@ -104,13 +130,18 @@ export async function attemptHandler(h: TurnHandlerDeps, req: AttemptRequest): P
 
   // The first logged error names the tone to coach (cmn: expected tone number).
   const toneFocus = result.record.errorDetail[0]?.expected;
+  // The revealed model is the turn's target (clean target script + romanization).
+  const target = pending.decision.targetUtterance;
 
   const dto: AttemptResultDto = {
     verdict: result.feedback.verdict,
     correction: result.feedback.correction,
     modelAudioUrl: result.modelAudio.url ?? '',
+    transcript: result.transcript,
+    modelSurface: target.surface,
     decision: result.feedback.decision,
   };
+  if (target.pinyin) dto.modelPinyin = target.pinyin;
   if (toneFocus) dto.toneFocus = toneFocus;
   return dto;
 }

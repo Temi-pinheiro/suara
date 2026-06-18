@@ -8,6 +8,7 @@ import { ToneCue } from './ToneCue';
 import {
   Button,
   CenterState,
+  Chip,
   EchoBubble,
   FeedbackCard,
   Spinner,
@@ -76,6 +77,21 @@ export function LessonScreen({ api, audio, title = 'Mandarin', onExit }: Props) 
           <CenterState msg="Listening to what you said…">
             <ThinkOrb />
           </CenterState>
+        ) : phase === 'feedback' && attempt ? (
+          <>
+            {attempt.transcript ? <EchoBubble text={attempt.transcript} /> : null}
+            <FeedbackCard
+              verdict={attempt.verdict}
+              verdictLine={VERDICT_LINE[attempt.verdict]}
+              note={attempt.correction}
+              modelWord={attempt.modelSurface}
+              modelRoman={attempt.modelPinyin}
+              onListen={replay}
+              playing={playing}
+            />
+            {attempt.toneFocus ? <ToneCue tone={attempt.toneFocus} /> : null}
+            <View style={styles.grow} />
+          </>
         ) : (
           <>
             {/* introduce → ambient narration; recombine → the build cue */}
@@ -83,39 +99,30 @@ export function LessonScreen({ api, audio, title = 'Mandarin', onExit }: Props) 
               {prompt?.englishSetup}
             </Text>
 
-            {introduce && prompt?.teach && (awaitingLike || phase === 'recording') && (
-              <WordCard
-                word={prompt.teach.surface}
-                roman={prompt.teach.pinyin}
-                onListen={replay}
-                playing={playing}
-              />
-            )}
+            {introduce && prompt?.teach ? (
+              <WordCard word={prompt.teach.surface} roman={prompt.teach.pinyin} onListen={replay} playing={playing} />
+            ) : null}
 
-            {!introduce && awaitingLike && (
+            {!introduce ? (
               <Text style={[type.narration, { color: c.narration }]}>
                 The answer stays hidden until you’ve tried — take your time.
               </Text>
-            )}
+            ) : null}
 
             <View style={styles.grow} />
 
-            {phase === 'recording' && <EchoBubble text="listening…" pending />}
-
-            {phase === 'feedback' && attempt && (
-              <>
-                <FeedbackCard
-                  verdict={attempt.verdict}
-                  verdictLine={VERDICT_LINE[attempt.verdict]}
-                  note={attempt.correction}
-                  modelWord={introduce ? prompt?.teach?.surface : undefined}
-                  modelRoman={introduce ? prompt?.teach?.pinyin : undefined}
-                  onListen={replay}
-                  playing={playing}
-                />
-                {attempt.toneFocus ? <ToneCue tone={attempt.toneFocus} /> : null}
-              </>
-            )}
+            {phase === 'recording' ? (
+              <EchoBubble text="listening…" pending />
+            ) : !introduce && prompt?.pieces?.length ? (
+              <View style={styles.shelf}>
+                <Text style={[type.caption, { color: c.faint }]}>pieces you can now combine</Text>
+                <View style={styles.chips}>
+                  {prompt.pieces.map((p, i) => (
+                    <Chip key={i} label={p.surface} roman={p.roman} fresh={p.fresh} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
           </>
         )}
       </View>
@@ -155,6 +162,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   body: { flex: 1, paddingHorizontal: space.h, paddingTop: space.sm, gap: space.xxl },
   grow: { flex: 1 },
+  shelf: { gap: 10 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   footer: { paddingHorizontal: space.h, paddingTop: space.xl, paddingBottom: space.hero, gap: space.lg },
   micRow: { alignItems: 'center' },
   helper: { textAlign: 'center' },
