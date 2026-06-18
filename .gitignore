@@ -22,3 +22,6 @@ packages/client/android/
 
 # Logs
 *.log
+
+# design-pass artifacts
+design/.thumbnail
