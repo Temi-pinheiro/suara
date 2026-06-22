@@ -1,0 +1,13 @@
+{
+  "imports": {
+    "@suara/core": "../../../packages/core/src/index.ts",
+    "@suara/core/": "../../../packages/core/src/",
+    "@suara/curriculum": "../../../packages/curriculum/src/index.ts",
+    "@suara/providers": "../../../packages/providers/src/index.ts",
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.104.1",
+    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@3.1068.0",
+    "drizzle-orm": "npm:drizzle-orm@0.45.2",
+    "drizzle-orm/": "npm:/drizzle-orm@0.45.2/",
+    "postgres": "npm:postgres@3.4.9"
+  }
+}

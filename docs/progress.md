@@ -1,10 +1,31 @@
 # Suara — Build Progress
 
-> Snapshot as of 2026-06-16. Branch: `phase-0-skeleton`.
-> **Status: Phase 0 + Phase 1 complete and VALIDATED LIVE — 60 tests green,
-> typechecks clean. A real Mandarin turn runs end-to-end against every provider +
-> Supabase + R2 (`pnpm turn`), with construct-first recombination and gentle tone
-> coaching.** Pairs with `PLAN.md` (spec) and `design-pass.md` (decisions).
+> Snapshot as of 2026-06-18. Branch: `phase-1-app-wiring`.
+> **Status: Phases 0–1 complete & validated live; Phase 2 substantially done; Phase 3
+> architecturally complete — all FIVE languages run end-to-end on one engine with ZERO
+> `core` diffs. The client is rebuilt to the design-pass system. 105 tests green,
+> typechecks clean.** A real Mandarin turn runs end-to-end against every provider +
+> Supabase + R2 (`pnpm turn`); Japanese/Korean/Hindi route through the same loop in
+> `segmental` mode and Indonesian in `coached` mode (proven on mocks). The voice client
+> now ships the warm "live-voice" UI (light + dark, all states, entry + **language
+> picker**) with **runtime language switching** (`x-suara-lang`). Pairs with `PLAN.md`
+> (spec), `design-pass.md` (decisions), and `design-handoff.md` + `design/` (UI/UX pass).
+>
+> **v1 / TestFlight pass (2026-06-21):** anonymous per-device identity (Keychain →
+> `x-user-id`, so each tester is isolated), a Supabase Edge Function scaffold + deploy
+> runbook (`docs/deploy.md`), per-user cost guardrails on the public endpoint, brand
+> icon/splash + `eas.json` (version 1.0.0), and a curriculum expansion: **all five
+> languages grown to 100 components each** (cmn 50 → 100; jpn/kor/hin/ind ~30 → 100),
+> **each fully grouped into path modules** (17–18 per language), so the path UX works
+> for all five. Every graph stays DAG-valid (topo-ordered, reachable, modules tile
+> exactly). 119 tests green, typechecks clean.
+>
+> **Honest caveats:** the curricula are still LLM-authored *drafts* (100 blocks each,
+> toward the 150–250 target) and need the PLAN.md §6 native-teacher gate before they're
+> production curricula. `gen:audio` should be re-run for the new blocks
+> (otherwise their audio synthesizes on first use and caches). Classmates are implemented
+> + opt-in but not yet exercised on the live brain. Live validation so far is Mandarin
+> only; the Edge Function still needs a real deploy + smoke (`docs/deploy.md`).
 
 ---
 
@@ -32,7 +53,7 @@ imports zero provider/infra SDKs** (verified).
 | Package | Role | Status | Tests |
 |---|---|---|---|
 | `@suara/core` | Language-/host-agnostic engine: types + provider interfaces, invisible SRS, MT brain (persona + context + structured-output validators), turn lifecycle (`planTurn`/`completeTurn`/`runTurn`) | ✅ | 8 |
-| `@suara/curriculum` | c01–c30 Mandarin seed + prereq-respecting DAG graph | ✅ | (via golden path) |
+| `@suara/curriculum` | 5 language seeds — **100 components each** (cmn, jpn, kor, hin, ind), every one grouped into path modules — on a shared prereq-DAG graph, with a cross-language integrity test | ✅ | 31 |
 | `@suara/providers` | Real + mock providers behind core interfaces | ✅ | 18 |
 | `@suara/server` | Composition root, two-phase turn handlers, Drizzle/Supabase store, R2 store | ✅ | 5 |
 | `@suara/client` | Expo voice app: lesson state machine, tone scaffold, audio/api interfaces, UI | ✅ | 13 |
@@ -78,7 +99,7 @@ POST attempt → completeTurn: ASR ∥ Pronunciation → brain.interpretResponse
 
 ## 4. Verification status
 
-**Verified in CI** (49 tests, `pnpm typecheck` + `pnpm --filter @suara/client typecheck`):
+**Verified in CI** (105 tests, `pnpm typecheck` + `pnpm --filter @suara/client typecheck`):
 - Full turn lifecycle on mocks (tone + coached).
 - SRS scheduling/mastery; TTS cache behavior; brain tiering + tool-use + persona gate;
   vendor request shaping (ElevenLabs/Scribe/SpeechSuper) + SpeechSuper result mapping;
@@ -109,11 +130,11 @@ POST attempt → completeTurn: ASR ∥ Pronunciation → brain.interpretResponse
 
 ```bash
 pnpm install
-pnpm test            # 60 unit/integration tests (mocks; no live calls — also CI)
+pnpm test            # 105 unit/integration tests (mocks; no live calls — also CI)
 pnpm test:turn       # golden-path turn lifecycle gate
 pnpm typecheck       # engine + providers + curriculum + server
 pnpm --filter @suara/client typecheck   # RN/Expo client
-pnpm --filter @suara/client start        # Expo dev (runs the standalone mock lesson)
+pnpm --filter @suara/client start        # Expo dev (defaults to the local backend)
 ```
 
 CI (`.github/workflows/ci.yml`) runs the typechecks + tests on every push/PR — all
@@ -122,11 +143,16 @@ on mocks, no keys.
 With real keys in `.env` (see `.env.example`):
 
 ```bash
-pnpm smoke           # ping every provider (auth/connectivity), no secrets printed
-pnpm db:migrate      # apply the schema to Supabase Postgres
-pnpm db:seed         # load the cmn curriculum into `components`
-pnpm turn [user]     # run one real end-to-end turn (writes real rows + audio)
+pnpm smoke                    # ping every provider (auth/connectivity), no secrets printed
+pnpm db:migrate               # apply the schema to Supabase Postgres
+pnpm db:seed [cmn|jpn|kor|hin|ind]   # load a language's curriculum into `components`
+pnpm turn [user]              # one real end-to-end turn (SUARA_LANG=jpn pnpm turn → another language)
+pnpm serve                    # local HTTP backend on :8787 (SUARA_LANG picks the language)
 ```
+
+Run the app against the live backend: `pnpm serve`, then start the client. The client
+defaults to `http://localhost:8787`; override with `EXPO_PUBLIC_SUARA_API` for a device
+(LAN IP) or a deployed backend. There is no offline mock lesson — every turn is real.
 
 `prod.ts` builds the real brain + TTS/ASR/pronunciation + Drizzle stores from env.
 
@@ -137,15 +163,41 @@ pnpm turn [user]     # run one real end-to-end turn (writes real rows + audio)
 - **Phase 0 — Skeleton & contracts:** ✅ done.
 - **Phase 1 — Mandarin vertical slice:** ✅ all providers + brain + server + client +
   tone scaffold, tested on mocks **and validated live end-to-end** (`pnpm turn`).
-- **Remaining glue to a phone-usable demo:** client HTTP `SessionApi` adapter →
-  server handlers; a serverless entry (Supabase Edge Function) around
-  `createTurnHandlerDeps`; Expo recording → 16 kHz WAV (the `pcmToWav` util exists).
-  (DB migrations + curriculum seed + live smoke are ✅ done.)
-- **Phase 2 — Pedagogy hardening (next):** full ~150–250-component expert-reviewed
-  Mandarin graph; optional classmates (turn on the existing schema field);
-  `gen:audio` batch pre-generation pipeline → R2; cost instrumentation.
-- **Phase 3:** Japanese/Korean/Hindi (segmental, add Azure for hi-IN) + Indonesian
-  (coached) — the zero-`core`-diff acceptance test.
+- **App wiring:** ✅ framework-agnostic HTTP entry (`createHttpHandler`) + local dev
+  server (`pnpm serve`); client `HttpSessionApi` → those endpoints (uploads recorded
+  audio); Expo records 16 kHz WAV on iOS for Azure. The standalone mock client was
+  removed — the app always hits the real backend.
+- **Client / design pass:** ✅ rebuilt to the returned design system — a shared
+  `theme.ts` (light + dark; teal "live voice", verdict warmths, no red), token-driven
+  primitives, every lesson state (loading / awaiting-introduce / awaiting-recombine /
+  recording / scoring / feedback / error), an entry screen (its "Begin" also unlocks web
+  audio), and a **language picker**. Audio is learner-initiated (no autoplay wedge).
+  Turn DTOs were enriched (transcript echo, revealed model word, recombine pieces shelf).
+- **Runtime language switching:** ✅ a `LanguageRouter` (`prod.ts`) resolves deps by an
+  `x-suara-lang` header over shared infra; the picker switches all five live (graph is
+  in-process, store is per-language → no per-language DB seeding needed).
+- **Spend + path:** ✅ per-request metering → a session **spend** indicator in the topbar
+  (`costUsd` folded into each response, accumulated in-memory); a **module path model** —
+  each graph grouped into modules, a `GET /path` overview derived from SRS state
+  (done/here/ahead, owned vs ahead), and the `path` + `moduleIntro` screens (Begin →
+  glance → lesson). **All five languages now have authored modules** (cmn 17, the others
+  9–10 each), so the path UX is language-agnostic — no fall-through to the bare lesson.
+- **Phase 2 — Pedagogy hardening:** 🟡 mostly done. ✅ `gen:audio` pre-gen pipeline +
+  cost instrumentation (done earlier); ✅ Mandarin graph expanded 30 → 50 → **100**
+  (DAG-validated); ✅ simulated classmates implemented as an opt-in
+  `LanguageConfig.classmates` flag (core plumbing + persona + mock + tests). ⬜ Remaining:
+  grow cmn from 100 toward the full 150–250 and get the native-teacher review; exercise
+  classmates on the live brain.
+- **Phase 3 — Multi-language proof:** ✅ architecturally complete. Japanese/Korean/Hindi
+  (`segmental`, Azure) + Indonesian (`coached`, no scorer) each have a `LanguageConfig`
+  + a DAG-validated graph **expanded to 100 blocks + path modules** + registration —
+  added as **data + config only, zero `core` diffs** (the acceptance test). A segmental
+  turn and a coached turn each run the full loop on mocks. ⬜ Remaining: native-teacher
+  review per language; live validation beyond Mandarin; Android WAV transcode for Azure.
+- **Cross-cutting to ship:** deploy `createHttpHandler` to a Supabase Edge Function;
+  real Supabase auth (the `authenticate` hook is injected, dev uses `x-user-id`); client
+  packaging (EAS / hosted web); onboarding/session UX.
+- **Phase 4 — Fluency runway:** not started (free-conversation, analytics, literacy).
 
 ---
 

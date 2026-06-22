@@ -11,7 +11,17 @@ export interface ComponentSeed {
   recomb_hint?: string;
 }
 
+/** A small functional grouping of components — the unit shown on the path overview. */
+export interface ModuleSeed {
+  id: string;
+  /** warm, human title (e.g. "I want a drink") — never "Level 3" */
+  title: string;
+  componentIds: string[];
+}
+
 export interface LanguageSeed {
   lang: LangCode;
   components: ComponentSeed[];
+  /** optional: groups the components into path modules (cmn authored first) */
+  modules?: ModuleSeed[];
 }

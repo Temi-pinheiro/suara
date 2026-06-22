@@ -89,6 +89,8 @@ export interface AnthropicProviderOptions {
   /** static curriculum context cached alongside the persona (the big cost lever) */
   curriculumContext?: string;
   maxTokens?: number;
+  /** fires after every model call with the model id + token usage (cost metering) */
+  onUsage?: (model: string, usage: AnthropicResponse['usage']) => void;
 }
 
 const DECIDE_TURN_TOOL: AnthropicToolDef = {
@@ -129,6 +131,7 @@ export class AnthropicProvider implements LLMProvider {
   private readonly strongModel: string;
   private readonly curriculumContext: string | undefined;
   private readonly maxTokens: number;
+  private readonly onUsage: AnthropicProviderOptions['onUsage'];
 
   constructor(options: AnthropicProviderOptions) {
     this.config = options.config;
@@ -136,6 +139,7 @@ export class AnthropicProvider implements LLMProvider {
     this.strongModel = options.models?.strong ?? 'claude-opus-4-8';
     this.curriculumContext = options.curriculumContext;
     this.maxTokens = options.maxTokens ?? 2048;
+    this.onUsage = options.onUsage;
 
     if (options.client) {
       this.client = options.client;
@@ -217,6 +221,7 @@ export class AnthropicProvider implements LLMProvider {
         tool_choice: { type: 'tool', name: DECIDE_TURN_TOOL.name },
         messages: [{ role: 'user', content }],
       });
+      this.onUsage?.(this.routineModel, res.usage);
 
       const decision = assertTurnDecision(this.toolUseInput(res, DECIDE_TURN_TOOL.name));
       // Keep the target script clean (no romanization/English) and pin referenceText to
@@ -245,6 +250,7 @@ export class AnthropicProvider implements LLMProvider {
         tool_choice: { type: 'tool', name: FEEDBACK_TOOL.name },
         messages: [{ role: 'user', content }],
       });
+      this.onUsage?.(model, res.usage);
 
       const feedback = assertFeedback(this.toolUseInput(res, FEEDBACK_TOOL.name));
       const copy = `${feedback.correction} ${feedback.nextPrompt ?? ''} ${feedback.revealNote ?? ''}`;

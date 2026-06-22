@@ -2,11 +2,48 @@
   "expo": {
     "name": "Suara",
     "slug": "suara",
-    "version": "0.0.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "android", "web"],
-    "ios": { "supportsTablet": true, "infoPlist": { "NSMicrophoneUsageDescription": "Suara listens to your practice so your tutor can give gentle feedback." } },
-    "android": { "permissions": ["RECORD_AUDIO"] }
+    "icon": "./assets/icon.png",
+    "scheme": "suara",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F8E78"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Suara listens to your practice so your tutor can give gentle feedback.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.devinhio.suara"
+    },
+    "android": {
+      "package": "com.devinhio.suara",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F8E78"
+      },
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
   }
 }

@@ -11,7 +11,7 @@ import {
 } from '@suara/providers';
 import type { Component, LanguageConfig } from '@suara/core';
 import { assembleTurnDeps, pronunciationFor } from '../compose';
-import { attemptHandler, planTurnHandler, type TurnHandlerDeps } from './handlers';
+import { attemptHandler, pathHandler, planTurnHandler, type TurnHandlerDeps } from './handlers';
 import { InMemoryPendingTurnStore } from './pending';
 
 const clock = () => 1_700_000_000_000;
@@ -60,16 +60,32 @@ describe('turn handlers — two-phase HTTP turn', () => {
     expect(packet.turnId).toBe('turn-1');
     expect(packet.englishSetup.length).toBeGreaterThan(0);
     expect(packet.setupAudioUrl).toContain('mock://audio/');
-    expect('targetUtterance' in packet).toBe(false); // the target answer is never sent pre-attempt
+    // introduce TEACHES the new block (you can't produce an unheard word) ...
+    expect(packet.action).toBe('introduce');
+    expect(packet.teach?.surface).toBe('我');
+    expect(packet.teach?.pinyin).toBe('wǒ');
+    expect(packet.teach?.modelAudioUrl).toContain('mock://audio/');
+    // ... but the full target sentence is still never sent pre-attempt
+    expect('targetUtterance' in packet).toBe(false);
 
     const result = await attemptHandler(h, { turnId: 'turn-1', audio: spokenAudio('我') });
     expect(result.decision).toBe('advance');
     expect(result.verdict).toBe('correct');
     expect(result.modelAudioUrl).toContain('mock://audio/');
+    // the attempt reveals the model + echoes back what the learner said (never graded)
+    expect(result.transcript).toBe('我');
+    expect(result.modelSurface).toBe('我');
 
     const state = await store.getState('u1', 'cmn');
     expect(state.known).toContain('c01'); // persisted through the Drizzle-shaped store interface
     expect(state.turnIndex).toBe(1);
+  });
+
+  it('strips ASR sound annotations from the echoed transcript', async () => {
+    const { h } = cmnHandlers();
+    await planTurnHandler(h, { userId: 'u-ann' });
+    const result = await attemptHandler(h, { turnId: 'turn-1', audio: spokenAudio('我 (吃东西的声音)') });
+    expect(result.transcript).toBe('我'); // the (sound) annotation is removed
   });
 
   it('a tone miss comes back as a rebuild carrying the tone to coach', async () => {
@@ -91,6 +107,17 @@ describe('turn handlers — two-phase HTTP turn', () => {
     await expect(attemptHandler(h, { turnId: 'nope', audio: spokenAudio('x') })).rejects.toThrow(
       /unknown or already-used/,
     );
+  });
+
+  it('builds the path overview from module progress (never a score)', async () => {
+    const { h } = cmnHandlers();
+    const path = await pathHandler(h, { userId: 'u-path' });
+
+    expect(path.modules.length).toBeGreaterThan(0);
+    // a brand-new learner: the first module holds the current block, the rest are ahead
+    expect(path.modules[0]!.state).toBe('here');
+    expect(path.modules[0]!.pieces[0]).toMatchObject({ surface: '我', owned: false, current: true });
+    expect(path.modules.slice(1).every((m) => m.state === 'ahead')).toBe(true);
   });
 });
 

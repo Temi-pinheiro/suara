@@ -90,6 +90,7 @@ export const FEEDBACK_SCHEMA = {
     },
     nextPrompt: { type: ['string', 'null'] },
     revealNote: { type: ['string', 'null'] },
+    attemptRoman: { type: ['string', 'null'] },
   },
 } as const;
 
@@ -204,5 +205,6 @@ export function assertFeedback(x: unknown): Feedback {
     masteryDelta: coerceMasteryDeltas(x.masteryDelta),
     nextPrompt: typeof x.nextPrompt === 'string' ? x.nextPrompt : null,
     revealNote: typeof x.revealNote === 'string' ? x.revealNote : null,
+    attemptRoman: typeof x.attemptRoman === 'string' ? x.attemptRoman : null,
   };
 }

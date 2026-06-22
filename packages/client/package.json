@@ -1,23 +1,30 @@
 {
   "name": "@suara/client",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
+    "gen:icons": "node scripts/gen-icons.mjs",
+    "gen:earcons": "node scripts/gen-earcons.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "expo": "~52.0.0",
-    "expo-av": "~15.0.1",
-    "expo-status-bar": "~2.0.0",
-    "react": "18.3.1",
-    "react-native": "0.76.5"
+    "@expo/metro-runtime": "~6.1.2",
+    "expo": "~54.0.0",
+    "expo-audio": "~1.1.1",
+    "expo-secure-store": "~15.0.8",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-web": "~0.21.0"
   },
   "devDependencies": {
-    "@types/react": "~18.3.12"
+    "@types/react": "~19.1.0"
   }
 }

@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { toneCue } from '../tone/scaffold';
+import { radius, useTheme } from './theme';
+import { ToneContour } from './primitives';
 
 interface Props {
   /** the tone the brain chose to coach this turn, e.g. '2' */
@@ -7,32 +9,40 @@ interface Props {
 }
 
 /**
- * Audio-native tone scaffold, surfaced gently. Shows the spoken contour + the
- * consistent mnemonic for the tone being coached. It's an optional visual aid —
- * the real teaching is in the spoken correction and the model audio.
+ * Audio-native tone scaffold, surfaced gently (Mandarin only). A small contour glyph
+ * (line direction = the tone) + the plain-language contour. The real teaching is the
+ * spoken correction + model audio; this is an optional visual aid.
  */
 export function ToneCue({ tone }: Props) {
+  const { c } = useTheme();
   const cue = toneCue(tone);
   if (!cue) return null;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Tone {cue.tone} · {cue.name}</Text>
-      <Text style={styles.contour}>{cue.contour}</Text>
-      <Text style={styles.mnemonic}>Think: {cue.mnemonic}</Text>
+    <View style={[styles.card, { backgroundColor: c.cream, borderColor: c.stroke }]}>
+      <ToneContour tone={tone} color={c.primary} />
+      <View style={styles.text}>
+        <Text style={[styles.name, { color: c.text }]}>
+          Tone {cue.tone} · {cue.name}
+        </Text>
+        <Text style={[styles.desc, { color: c.dim }]}>{cue.contour}</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#F4F1EA',
-    borderRadius: 14,
-    padding: 16,
-    marginTop: 20,
     alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    borderWidth: 1,
+    borderRadius: radius.cue,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  title: { fontSize: 16, fontWeight: '700', marginBottom: 6, color: '#2B2B2B' },
-  contour: { fontSize: 16, color: '#2B2B2B', lineHeight: 22 },
-  mnemonic: { fontSize: 15, color: '#6A6A6A', marginTop: 8, fontStyle: 'italic' },
+  text: { flex: 1, gap: 2 },
+  name: { fontSize: 15, fontWeight: '800' },
+  desc: { fontSize: 13.5, lineHeight: 19 },
 });

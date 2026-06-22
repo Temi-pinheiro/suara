@@ -47,7 +47,11 @@ export class MockLLMProvider implements LLMProvider {
         targetUtterance: { surface, expectedTones: block.expectedTones ?? undefined },
         referenceText: surface,
         teachingNote: block.rule ?? '',
-        classmateAttempt: null,
+        // Off unless the learner has classmates enabled; the real brain authors the
+        // instructive slip — the mock just proves the audio plumbing fires.
+        classmateAttempt: ctx.classmatesEnabled
+          ? { utterance: surface, isError: false, note: 'a classmate gave it a try too.' }
+          : null,
         reassurance: null,
       };
     }

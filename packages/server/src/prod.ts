@@ -16,9 +16,20 @@ import {
   ScribeASRProvider,
   SpeechSuperProvider,
   type AnthropicClientLike,
+  type AnthropicProviderOptions,
 } from '@suara/providers';
-import type { ASRProvider, LanguageConfig, PronunciationProvider, TTSProvider } from '@suara/core';
+import { loadCurriculum } from '@suara/curriculum';
+import type {
+  ASRProvider,
+  CurriculumGraph,
+  LangCode,
+  LanguageConfig,
+  PronunciationProvider,
+  TTSProvider,
+} from '@suara/core';
 import { assembleTurnDeps } from './compose';
+import { isSupportedLang, languageConfig, type VoiceIds } from './config/languages';
+import { MeteredASRProvider, MeteredPronunciationProvider, MeteredTTSProvider, type UsageMeter } from './cost/meter';
 import { createDb } from './db/client';
 import { DrizzleLearnerStore } from './db/learnerStore';
 import { DrizzlePendingTurnStore } from './db/pendingStore';
@@ -40,10 +51,20 @@ export interface ServerEnv {
   R2_PUBLIC_BASE_URL?: string;
 }
 
+/**
+ * Strip surrounding quotes a value may carry from `docker --env-file` or a host
+ * dashboard — unlike dotenv, those keep them verbatim, and a quoted DATABASE_URL then
+ * breaks `new URL()` (and quoted API keys fail auth). A connection string / key never
+ * legitimately starts and ends with a quote, so this is safe.
+ */
+export function unquote(v: string): string {
+  return v.trim().replace(/^(['"])([\s\S]*)\1$/, '$2');
+}
+
 function required(env: ServerEnv, key: keyof ServerEnv): string {
   const v = env[key];
   if (!v) throw new Error(`${key} is required`);
-  return v;
+  return unquote(v);
 }
 
 function buildTts(env: ServerEnv): TTSProvider {
@@ -80,25 +101,111 @@ function buildPronunciation(config: LanguageConfig, env: ServerEnv): Pronunciati
   });
 }
 
+export interface CreateTurnHandlerOptions {
+  curriculumContext?: string;
+  /** when set, wraps the providers + brain so per-turn usage is tallied */
+  meter?: UsageMeter;
+}
+
 export function createTurnHandlerDeps(
   config: LanguageConfig,
   env: ServerEnv,
-  curriculumContext?: string,
+  opts: CreateTurnHandlerOptions = {},
 ): TurnHandlerDeps {
   const db = createDb(required(env, 'DATABASE_URL'));
   // `new Anthropic()` reads ANTHROPIC_API_KEY from the environment — no secret here.
   const client = new Anthropic() as unknown as AnthropicClientLike;
-  const llm = new AnthropicProvider(
-    curriculumContext === undefined ? { config, client } : { config, client, curriculumContext },
-  );
+
+  const meter = opts.meter;
+  const llmOpts: AnthropicProviderOptions = { config, client };
+  if (opts.curriculumContext !== undefined) llmOpts.curriculumContext = opts.curriculumContext;
+  if (meter) {
+    llmOpts.onUsage = (model, usage) =>
+      meter.llm(model, {
+        input: usage?.input_tokens,
+        output: usage?.output_tokens,
+        cacheRead: usage?.cache_read_input_tokens,
+      });
+  }
+
+  const tts = meter ? new MeteredTTSProvider(buildTts(env), meter) : buildTts(env);
+  const asr = meter ? new MeteredASRProvider(buildAsr(env), meter) : buildAsr(env);
+  const pron = buildPronunciation(config, env);
 
   const deps = assembleTurnDeps({
     config,
     store: new DrizzleLearnerStore(db),
-    llm,
-    tts: buildTts(env),
-    asr: buildAsr(env),
-    pronunciation: buildPronunciation(config, env),
+    llm: new AnthropicProvider(llmOpts),
+    tts,
+    asr,
+    pronunciation: meter ? new MeteredPronunciationProvider(pron, meter) : pron,
   });
   return { deps, pending: new DrizzlePendingTurnStore(db) };
+}
+
+/**
+ * Resolves TurnHandlerDeps by language for runtime language switching (the picker).
+ * Shared infra — one DB, one Anthropic client, one TTS/ASR — is built once; only the
+ * config, brain, pronunciation provider and (in-process) curriculum graph vary per
+ * language. Per-language deps are built lazily and cached. Routing stays by
+ * LanguageConfig/mode, never `if (lang === ...)`.
+ */
+export interface LanguageRouter {
+  /** Pass a per-request meter to tally that turn's cost (the spend indicator). */
+  resolve(lang: string | undefined, meter?: UsageMeter): TurnHandlerDeps;
+}
+
+export function createLanguageRouter(
+  env: ServerEnv,
+  voices: VoiceIds,
+  opts: { defaultLang?: LangCode } = {},
+): LanguageRouter {
+  const db = createDb(required(env, 'DATABASE_URL'));
+  const client = new Anthropic() as unknown as AnthropicClientLike;
+  const baseTts = buildTts(env);
+  const baseAsr = buildAsr(env);
+  const store = new DrizzleLearnerStore(db);
+  const pending = new DrizzlePendingTurnStore(db); // shared: keyed by turnId, not language
+  const defaultLang: LangCode = opts.defaultLang ?? 'cmn';
+  // Cache the per-language config + (JSON-parsed) curriculum graph. The brain and the
+  // (optionally metered) providers are built per request so each turn's cost is tallied
+  // in isolation — a shared meter would mix concurrent users together.
+  const parts = new Map<LangCode, { config: LanguageConfig; graph: CurriculumGraph }>();
+
+  function partsFor(code: LangCode) {
+    let p = parts.get(code);
+    if (!p) {
+      p = { config: languageConfig(code, voices), graph: loadCurriculum(code) };
+      parts.set(code, p);
+    }
+    return p;
+  }
+
+  return {
+    resolve(lang, meter) {
+      const code: LangCode = lang && isSupportedLang(lang) ? lang : defaultLang;
+      const { config, graph } = partsFor(code);
+
+      const llmOpts: AnthropicProviderOptions = { config, client };
+      if (meter) {
+        llmOpts.onUsage = (model, usage) =>
+          meter.llm(model, {
+            input: usage?.input_tokens,
+            output: usage?.output_tokens,
+            cacheRead: usage?.cache_read_input_tokens,
+          });
+      }
+      const pron = buildPronunciation(config, env);
+      const deps = assembleTurnDeps({
+        config,
+        store,
+        graph,
+        llm: new AnthropicProvider(llmOpts),
+        tts: meter ? new MeteredTTSProvider(baseTts, meter) : baseTts,
+        asr: meter ? new MeteredASRProvider(baseAsr, meter) : baseAsr,
+        pronunciation: meter ? new MeteredPronunciationProvider(pron, meter) : pron,
+      });
+      return { deps, pending };
+    },
+  };
 }

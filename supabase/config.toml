@@ -1,0 +1,10 @@
+# Supabase project config (CLI). Only the turn API edge function is defined here.
+# `project_id` is set by `supabase link`; replace if you init fresh.
+project_id = "REPLACE_WITH_SUPABASE_PROJECT_REF"
+
+[functions.api]
+# Our own anonymous x-user-id auth governs access (not Supabase JWT), so the gateway
+# JWT check is disabled. Keep the cost guardrails (server/src/cost) in front of it.
+verify_jwt = false
+# Per-function import map (npm + @suara workspace source) — see ./functions/api/deno.json
+import_map = "./functions/api/deno.json"

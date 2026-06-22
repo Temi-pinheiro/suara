@@ -48,7 +48,16 @@ export interface TurnDeps {
 
 export interface PromptAudio {
   setup: AudioRef;
+  /** on `introduce` turns: the new block modeled in the target voice (hear it first) */
+  model?: AudioRef;
   classmate?: AudioRef;
+}
+
+/** The new block taught on an `introduce` turn — you can't produce an unheard word. */
+export interface TeachBlock {
+  surface: string;
+  pinyin?: string;
+  model: AudioRef;
 }
 
 export interface PlanResult {
@@ -56,6 +65,15 @@ export interface PlanResult {
   promptAudio: PromptAudio;
   /** carried to completeTurn so interpretResponse sees the same context */
   ctx: TurnContext;
+  /** present only on `introduce` turns */
+  teach?: TeachBlock;
+}
+
+/** Split a curriculum surface like "我 (wǒ)" into { surface: '我', pinyin: 'wǒ' }. */
+export function splitSurface(raw: string): { surface: string; pinyin?: string } {
+  const m = raw.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (m) return { surface: m[1]!.trim(), pinyin: m[2]!.trim() };
+  return { surface: raw.trim() };
 }
 
 export interface CompleteTurnInput {
@@ -71,6 +89,8 @@ export interface CompleteTurnResult {
   pronScore: PronScore | null;
   feedback: Feedback;
   modelAudio: AudioRef;
+  /** the warm L1 coaching line, spoken — so feedback is heard, not read (all-voice) */
+  correctionAudio: AudioRef;
   record: TurnRecord;
   /** learner state after persistence (read back from the store) */
   state: LearnerState;
@@ -101,12 +121,25 @@ export async function planTurn(deps: TurnDeps, userId: string): Promise<PlanResu
 
   const setup = await deps.tts.synth(decision.englishSetup, deps.config.tts.l1VoiceId, lang);
   const promptAudio: PromptAudio = { setup };
+
+  // Introduce = TEACH the new block first: model it in the target voice + surface its
+  // pinyin, so the learner hears the word before being asked to produce it. The full
+  // target sentence is still constructed (not revealed). Recombine teaches nothing new.
+  let teach: TeachBlock | undefined;
+  if (decision.action === 'introduce') {
+    const block = ctx.availableBlocks.find((b) => b.id === decision.focusComponentId);
+    const { surface, pinyin } = splitSurface(block?.surface ?? decision.targetUtterance.surface);
+    const model = await deps.tts.synth(surface, deps.config.tts.targetVoiceId, lang);
+    promptAudio.model = model;
+    teach = pinyin ? { surface, pinyin, model } : { surface, model };
+  }
+
   if (decision.classmateAttempt) {
     const classmateVoice = deps.config.tts.classmateVoiceIds?.[0] ?? deps.config.tts.targetVoiceId;
     promptAudio.classmate = await deps.tts.synth(decision.classmateAttempt.utterance, classmateVoice, lang);
   }
 
-  return { decision, promptAudio, ctx };
+  return teach ? { decision, promptAudio, ctx, teach } : { decision, promptAudio, ctx };
 }
 
 /** SCORE (ASR ∥ Pron) -> REACT -> SPEAK -> PERSIST. coached mode skips the scorer. */
@@ -129,7 +162,12 @@ export async function completeTurn(
   const scored: ScoredResponse = { decision: input.decision, transcript, pronScore };
   const feedback = await deps.llm.interpretResponse(scored, input.ctx);
 
-  const modelAudio = await deps.tts.synth(feedback.spokenModel, deps.config.tts.targetVoiceId, lang);
+  // Both feedback clips at once: the native model (target voice) + the warm L1 cue
+  // (l1 voice). Parallel — the spoken correction adds no latency over the model synth.
+  const [modelAudio, correctionAudio] = await Promise.all([
+    deps.tts.synth(feedback.spokenModel, deps.config.tts.targetVoiceId, lang),
+    deps.tts.synth(feedback.correction, deps.config.tts.l1VoiceId, lang),
+  ]);
 
   const record: TurnRecord = {
     componentId: input.decision.focusComponentId,
@@ -145,7 +183,7 @@ export async function completeTurn(
   await deps.store.recordTurn(input.userId, lang, record);
   const state = await deps.store.getState(input.userId, lang);
 
-  return { transcript, pronScore, feedback, modelAudio, record, state };
+  return { transcript, pronScore, feedback, modelAudio, correctionAudio, record, state };
 }
 
 /** Full lifecycle in one call (in-process + tests): plan, capture, complete. */

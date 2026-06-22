@@ -38,6 +38,12 @@ export interface LanguageConfig {
   };
   /** provider omitted when mode === 'coached' */
   pronunciation: { mode: PronMode; provider?: string };
+  /**
+   * Simulated classmates (PLAN.md §2, decision #4) — OFF by default. When true (and
+   * classmateVoiceIds are set) the brain may include an instructive classmate attempt
+   * the teacher then corrects. Purely additive: the turn loop already handles it.
+   */
+  classmates?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +171,8 @@ export interface TurnContext {
   known: string[];
   availableBlocks: AvailableBlock[];
   recombinationTargets: RecombinationTargetRef[];
+  /** when true the brain may emit a classmateAttempt this turn (off by default) */
+  classmatesEnabled?: boolean;
 }
 
 export type DecisionAction = 'introduce' | 'recombine';
@@ -244,6 +252,8 @@ export interface Feedback {
   nextPrompt: string | null;
   /** first-time sandhi/structure note, else null */
   revealNote: string | null;
+  /** the learner's OWN attempt (transcript) in romanization, so they can read it back */
+  attemptRoman?: string | null;
 }
 
 // ---------------------------------------------------------------------------
