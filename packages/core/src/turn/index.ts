@@ -89,6 +89,8 @@ export interface CompleteTurnResult {
   pronScore: PronScore | null;
   feedback: Feedback;
   modelAudio: AudioRef;
+  /** the warm L1 coaching line, spoken — so feedback is heard, not read (all-voice) */
+  correctionAudio: AudioRef;
   record: TurnRecord;
   /** learner state after persistence (read back from the store) */
   state: LearnerState;
@@ -160,7 +162,12 @@ export async function completeTurn(
   const scored: ScoredResponse = { decision: input.decision, transcript, pronScore };
   const feedback = await deps.llm.interpretResponse(scored, input.ctx);
 
-  const modelAudio = await deps.tts.synth(feedback.spokenModel, deps.config.tts.targetVoiceId, lang);
+  // Both feedback clips at once: the native model (target voice) + the warm L1 cue
+  // (l1 voice). Parallel — the spoken correction adds no latency over the model synth.
+  const [modelAudio, correctionAudio] = await Promise.all([
+    deps.tts.synth(feedback.spokenModel, deps.config.tts.targetVoiceId, lang),
+    deps.tts.synth(feedback.correction, deps.config.tts.l1VoiceId, lang),
+  ]);
 
   const record: TurnRecord = {
     componentId: input.decision.focusComponentId,
@@ -176,7 +183,7 @@ export async function completeTurn(
   await deps.store.recordTurn(input.userId, lang, record);
   const state = await deps.store.getState(input.userId, lang);
 
-  return { transcript, pronScore, feedback, modelAudio, record, state };
+  return { transcript, pronScore, feedback, modelAudio, correctionAudio, record, state };
 }
 
 /** Full lifecycle in one call (in-process + tests): plan, capture, complete. */

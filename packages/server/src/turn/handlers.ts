@@ -45,8 +45,25 @@ export interface PromptPacketDto {
   /** on `recombine` turns — the owned pieces being combined (NOT the answer) */
   pieces?: PieceDto[];
   classmateAudioUrl?: string;
+  /**
+   * Suggested hands-free listening window (ms): how long the all-voice client records
+   * before auto-submitting. Sized from the target's length so a longer sentence gets
+   * more time — WITHOUT revealing the answer (only its rough length leaks).
+   */
+  recordMs: number;
   /** approx USD cost of producing this call (the spend indicator); set by the http layer */
   costUsd?: number;
+}
+
+/**
+ * Fixed listening window sized to the target. ~0.9s per syllable/word + a 2.5s think
+ * buffer, clamped to a sane 4–12s. The learner never sees the answer; only its length
+ * shapes how long the mic stays open.
+ */
+function recordWindowMs(target: { surface: string; pinyin?: string }): number {
+  const roman = target.pinyin ?? target.surface;
+  const units = roman.trim().split(/[\s-]+/).filter(Boolean).length || 1;
+  return Math.min(12_000, Math.max(4_000, 2_500 + units * 900));
 }
 
 export interface AttemptRequest {
@@ -58,6 +75,8 @@ export interface AttemptRequest {
 export interface AttemptResultDto {
   verdict: 'correct' | 'close' | 'off';
   correction: string;
+  /** the warm cue spoken (l1 voice) — played in the all-voice flow before the model */
+  correctionAudioUrl: string;
   modelAudioUrl: string;
   /** what the learner actually said (ASR) — shown back as the echo, never a grade */
   transcript: string;
@@ -109,6 +128,7 @@ export async function planTurnHandler(h: TurnHandlerDeps, req: PlanRequest): Pro
     action: plan.decision.action,
     englishSetup: plan.decision.englishSetup,
     setupAudioUrl: plan.promptAudio.setup.url ?? '',
+    recordMs: recordWindowMs(plan.decision.targetUtterance),
   };
   if (plan.teach) {
     packet.teach = plan.teach.pinyin
@@ -154,6 +174,7 @@ export async function attemptHandler(h: TurnHandlerDeps, req: AttemptRequest): P
   const dto: AttemptResultDto = {
     verdict: result.feedback.verdict,
     correction: result.feedback.correction,
+    correctionAudioUrl: result.correctionAudio.url ?? '',
     modelAudioUrl: result.modelAudio.url ?? '',
     transcript: stripAudioAnnotations(result.transcript),
     modelSurface: target.surface,

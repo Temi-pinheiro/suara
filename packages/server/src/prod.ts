@@ -51,10 +51,20 @@ export interface ServerEnv {
   R2_PUBLIC_BASE_URL?: string;
 }
 
+/**
+ * Strip surrounding quotes a value may carry from `docker --env-file` or a host
+ * dashboard — unlike dotenv, those keep them verbatim, and a quoted DATABASE_URL then
+ * breaks `new URL()` (and quoted API keys fail auth). A connection string / key never
+ * legitimately starts and ends with a quote, so this is safe.
+ */
+export function unquote(v: string): string {
+  return v.trim().replace(/^(['"])([\s\S]*)\1$/, '$2');
+}
+
 function required(env: ServerEnv, key: keyof ServerEnv): string {
   const v = env[key];
   if (!v) throw new Error(`${key} is required`);
-  return v;
+  return unquote(v);
 }
 
 function buildTts(env: ServerEnv): TTSProvider {

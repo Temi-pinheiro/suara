@@ -11,9 +11,12 @@ export interface AudioBlobRef {
   durationMs?: number;
 }
 
+/** A remote clip (URL string) or a bundled asset (require(...) module id, for earcons). */
+export type AudioSource = string | number;
+
 export interface AudioIO {
-  /** Play teacher/model audio by URL (resolves when playback finishes). */
-  play(url: string): Promise<void>;
+  /** Play teacher/model audio or a bundled earcon (resolves when playback finishes). */
+  play(source: AudioSource): Promise<void>;
   /** Begin capturing the learner's voice (self-paced; no timer). */
   startRecording(): Promise<void>;
   /** Stop capture and hand back a reference to the recording. */

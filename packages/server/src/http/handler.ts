@@ -22,6 +22,11 @@ export interface HttpHandlerOptions {
   authenticate: (req: Request) => Promise<string> | string;
   /** CORS allow-origin; default '*' for dev. */
   corsOrigin?: string;
+  /**
+   * Optional per-user gate on the cost-bearing POST routes (plan/attempt). Returns
+   * `{ ok:false, retryAfterSec }` to throttle. The cheap GET /path is never limited.
+   */
+  rateLimit?: (userId: string) => { ok: boolean; retryAfterSec?: number };
 }
 
 /** Dev auth: trust an `x-user-id` header. Replace with Supabase JWT verification. */
@@ -66,6 +71,23 @@ export function createHttpHandler(deps: DepsSource, opts: HttpHandlerOptions): H
     const path = new URL(req.url).pathname.replace(/\/+$/, '');
     try {
       const userId = await opts.authenticate(req);
+
+      // Throttle the cost-bearing POSTs (plan/attempt) per user — a looping client
+      // shouldn't be able to run up real API spend on the open endpoint.
+      if (req.method === 'POST' && opts.rateLimit) {
+        const gate = opts.rateLimit(userId);
+        if (!gate.ok) {
+          return new Response(JSON.stringify({ error: "Let's take a breath — try that again in a moment." }), {
+            status: 429,
+            headers: {
+              'content-type': 'application/json',
+              ...(gate.retryAfterSec ? { 'retry-after': String(gate.retryAfterSec) } : {}),
+              ...cors,
+            },
+          });
+        }
+      }
+
       const meter = isResolver ? new UsageMeter() : undefined;
       const turnDeps = resolve(req.headers.get('x-suara-lang') ?? undefined, meter);
 

@@ -86,6 +86,39 @@ describe('createHttpHandler', () => {
     expect(res.status).toBe(404);
   });
 
+  it('429s a throttled user on the cost-bearing POST, but never on GET /path', async () => {
+    // A rateLimit that allows the first POST, then blocks; GET /path bypasses it.
+    let calls = 0;
+    const handle = createHttpHandler(
+      {
+        deps: assembleTurnDeps({
+          config: cmnConfig,
+          store: new InMemoryLearnerStore(clock),
+          llm: new MockLLMProvider(),
+          tts: new MockTTSProvider(),
+          asr: new MockASRProvider(),
+          pronunciation: new MockPronunciationProvider(),
+        }),
+        pending: new InMemoryPendingTurnStore(),
+        now: clock,
+        idgen: () => 'turn-1',
+      },
+      {
+        authenticate: devHeaderAuth,
+        rateLimit: () => (++calls <= 1 ? { ok: true } : { ok: false, retryAfterSec: 7 }),
+      },
+    );
+
+    expect((await handle(post('/turn/plan'))).status).toBe(200); // first allowed
+    const blocked = await handle(post('/turn/plan'));
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('retry-after')).toBe('7');
+
+    // GET /path is cheap and must never be throttled (calls counter untouched by it).
+    const pathRes = await handle(new Request('http://x/path', { method: 'GET', headers: { 'x-user-id': 'u1' } }));
+    expect(pathRes.status).toBe(200);
+  });
+
   it('serves the path overview on GET /path', async () => {
     const handle = handler();
     const res = await handle(new Request('http://x/path', { method: 'GET', headers: { 'x-user-id': 'u1' } }));

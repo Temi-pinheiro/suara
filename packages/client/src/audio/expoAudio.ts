@@ -10,7 +10,7 @@ import {
   type AudioStatus,
   type RecordingOptions,
 } from 'expo-audio';
-import type { AudioBlobRef, AudioIO } from './types';
+import type { AudioBlobRef, AudioIO, AudioSource } from './types';
 
 /**
  * 16 kHz mono capture. iOS records LinearPCM WAV, which Azure Pronunciation
@@ -55,8 +55,10 @@ export function useExpoAudioIO(): AudioIO {
 
   return useMemo<AudioIO>(
     () => ({
-      async play(url: string): Promise<void> {
-        const player = createAudioPlayer(url);
+      async play(source: AudioSource): Promise<void> {
+        // A string URL (teacher/model audio) or a number (require'd earcon asset);
+        // createAudioPlayer accepts both.
+        const player = createAudioPlayer(source);
         try {
           await new Promise<void>((resolve) => {
             let settled = false;
@@ -100,15 +102,24 @@ export function useExpoAudioIO(): AudioIO {
         if (!permitted.current) {
           const { granted } = await AudioModule.requestRecordingPermissionsAsync();
           if (!granted) throw new Error('Microphone permission denied');
-          await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
           permitted.current = true;
         }
+        // Enter the recording session EVERY turn — stopRecording resets it back to a
+        // playback session (for loud speaker output), so the mode must be re-asserted
+        // before each record(), not just the first. Missing this makes record() throw
+        // from turn 2 on (the session is still playback-only).
+        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
         await recorder.prepareToRecordAsync();
         recorder.record();
       },
 
       async stopRecording(): Promise<AudioBlobRef> {
         await recorder.stop();
+        // Critical for the hands-free loop: leaving allowsRecording on keeps iOS in the
+        // playAndRecord category, which routes the NEXT playback to the quiet earpiece.
+        // Reset to a playback session so the feedback + model audio come back loud on
+        // the speaker every turn (not just the first). Harmless on web/Android.
+        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
         const uri = recorder.uri;
         if (!uri) throw new Error('Recording produced no URI');
         return { uri, mimeType: RECORDING_MIME };

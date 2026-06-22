@@ -11,10 +11,21 @@
 > picker**) with **runtime language switching** (`x-suara-lang`). Pairs with `PLAN.md`
 > (spec), `design-pass.md` (decisions), and `design-handoff.md` + `design/` (UI/UX pass).
 >
-> **Honest caveats:** the curricula are LLM-authored *drafts* (cmn 50 of the 150–250
-> target; the four new languages ~30 each) and still need the PLAN.md §6 native-teacher
-> gate before they're production curricula. Classmates are implemented + opt-in but not
-> yet exercised on the live brain. Live validation so far is Mandarin only.
+> **v1 / TestFlight pass (2026-06-21):** anonymous per-device identity (Keychain →
+> `x-user-id`, so each tester is isolated), a Supabase Edge Function scaffold + deploy
+> runbook (`docs/deploy.md`), per-user cost guardrails on the public endpoint, brand
+> icon/splash + `eas.json` (version 1.0.0), and a curriculum expansion: **all five
+> languages grown to 100 components each** (cmn 50 → 100; jpn/kor/hin/ind ~30 → 100),
+> **each fully grouped into path modules** (17–18 per language), so the path UX works
+> for all five. Every graph stays DAG-valid (topo-ordered, reachable, modules tile
+> exactly). 119 tests green, typechecks clean.
+>
+> **Honest caveats:** the curricula are still LLM-authored *drafts* (100 blocks each,
+> toward the 150–250 target) and need the PLAN.md §6 native-teacher gate before they're
+> production curricula. `gen:audio` should be re-run for the new blocks
+> (otherwise their audio synthesizes on first use and caches). Classmates are implemented
+> + opt-in but not yet exercised on the live brain. Live validation so far is Mandarin
+> only; the Edge Function still needs a real deploy + smoke (`docs/deploy.md`).
 
 ---
 
@@ -42,7 +53,7 @@ imports zero provider/infra SDKs** (verified).
 | Package | Role | Status | Tests |
 |---|---|---|---|
 | `@suara/core` | Language-/host-agnostic engine: types + provider interfaces, invisible SRS, MT brain (persona + context + structured-output validators), turn lifecycle (`planTurn`/`completeTurn`/`runTurn`) | ✅ | 8 |
-| `@suara/curriculum` | 5 language seeds — cmn (50) + jpn/kor/hin/ind (~30 each) — on a shared prereq-DAG graph, with a cross-language integrity test | ✅ | 26 |
+| `@suara/curriculum` | 5 language seeds — **100 components each** (cmn, jpn, kor, hin, ind), every one grouped into path modules — on a shared prereq-DAG graph, with a cross-language integrity test | ✅ | 31 |
 | `@suara/providers` | Real + mock providers behind core interfaces | ✅ | 18 |
 | `@suara/server` | Composition root, two-phase turn handlers, Drizzle/Supabase store, R2 store | ✅ | 5 |
 | `@suara/client` | Expo voice app: lesson state machine, tone scaffold, audio/api interfaces, UI | ✅ | 13 |
@@ -167,20 +178,22 @@ defaults to `http://localhost:8787`; override with `EXPO_PUBLIC_SUARA_API` for a
   in-process, store is per-language → no per-language DB seeding needed).
 - **Spend + path:** ✅ per-request metering → a session **spend** indicator in the topbar
   (`costUsd` folded into each response, accumulated in-memory); a **module path model** —
-  the cmn graph grouped into 9 modules, a `GET /path` overview derived from SRS state
+  each graph grouped into modules, a `GET /path` overview derived from SRS state
   (done/here/ahead, owned vs ahead), and the `path` + `moduleIntro` screens (Begin →
-  glance → lesson). Modules are cmn-only so far; other languages fall through to the lesson.
+  glance → lesson). **All five languages now have authored modules** (cmn 17, the others
+  9–10 each), so the path UX is language-agnostic — no fall-through to the bare lesson.
 - **Phase 2 — Pedagogy hardening:** 🟡 mostly done. ✅ `gen:audio` pre-gen pipeline +
-  cost instrumentation (done earlier); ✅ Mandarin graph expanded 30 → 50 (DAG-validated);
-  ✅ simulated classmates implemented as an opt-in `LanguageConfig.classmates` flag (core
-  plumbing + persona + mock + tests). ⬜ Remaining: grow cmn to the full 150–250 and get
-  the native-teacher review; exercise classmates on the live brain.
+  cost instrumentation (done earlier); ✅ Mandarin graph expanded 30 → 50 → **100**
+  (DAG-validated); ✅ simulated classmates implemented as an opt-in
+  `LanguageConfig.classmates` flag (core plumbing + persona + mock + tests). ⬜ Remaining:
+  grow cmn from 100 toward the full 150–250 and get the native-teacher review; exercise
+  classmates on the live brain.
 - **Phase 3 — Multi-language proof:** ✅ architecturally complete. Japanese/Korean/Hindi
   (`segmental`, Azure) + Indonesian (`coached`, no scorer) each have a `LanguageConfig`
-  + a DAG-validated starter graph (~30 blocks) + registration — added as **data + config
-  only, zero `core` diffs** (the acceptance test). A segmental turn and a coached turn
-  each run the full loop on mocks. ⬜ Remaining: per-language curricula to full size +
-  expert review; live validation beyond Mandarin; Android WAV transcode for Azure.
+  + a DAG-validated graph **expanded to 100 blocks + path modules** + registration —
+  added as **data + config only, zero `core` diffs** (the acceptance test). A segmental
+  turn and a coached turn each run the full loop on mocks. ⬜ Remaining: native-teacher
+  review per language; live validation beyond Mandarin; Android WAV transcode for Azure.
 - **Cross-cutting to ship:** deploy `createHttpHandler` to a Supabase Edge Function;
   real Supabase auth (the `authenticate` hook is injected, dev uses `x-user-id`); client
   packaging (EAS / hosted web); onboarding/session UX.

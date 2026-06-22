@@ -1,0 +1,20 @@
+# Keep the image lean and secret-free.
+node_modules
+**/node_modules
+.git
+.github
+*.log
+
+# Never bake secrets into the image — they come from the host env.
+.env
+.env.*
+!.env.example
+
+# Client / native + generated artifacts the server doesn't need.
+packages/client/ios
+packages/client/android
+packages/client/.expo
+.expo
+dist
+build
+design

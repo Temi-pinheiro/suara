@@ -6,3 +6,9 @@ declare const process: {
     EXPO_PUBLIC_SUARA_USER?: string;
   };
 };
+
+// Metro resolves a bundled media asset to an opaque asset id (a number).
+declare module '*.wav' {
+  const asset: number;
+  export default asset;
+}

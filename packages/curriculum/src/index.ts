@@ -5,11 +5,13 @@
 
 import type { Component, LangCode } from '@suara/core';
 import type { ModuleSeed } from './types';
-import cmnStarter from '../data/cmn-starter.json';
-import jpnStarter from '../data/jpn-starter.json';
-import korStarter from '../data/kor-starter.json';
-import hinStarter from '../data/hin-starter.json';
-import indStarter from '../data/ind-starter.json';
+// JSON import attributes keep these resolvable under Deno (the Supabase Edge runtime)
+// as well as esbuild/tsx/Node — needed so @suara/curriculum bundles into the edge fn.
+import cmnStarter from '../data/cmn-starter.json' with { type: 'json' };
+import jpnStarter from '../data/jpn-starter.json' with { type: 'json' };
+import korStarter from '../data/kor-starter.json' with { type: 'json' };
+import hinStarter from '../data/hin-starter.json' with { type: 'json' };
+import indStarter from '../data/ind-starter.json' with { type: 'json' };
 import { DagCurriculumGraph } from './graph';
 import type { ComponentSeed, LanguageSeed } from './types';
 
