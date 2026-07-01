@@ -3,10 +3,12 @@
  * eyes-closed learner (the visual UI is optional). Warm and musical, never a buzzer:
  * MT tone is gentle, so even "try again" resolves softly, never punitively.
  *
- *   node scripts/gen-earcons.mjs   →  assets/earcons/{your-turn,thinking,got-it,again,done}.wav
+ *   node scripts/gen-earcons.mjs
+ *     → assets/earcons/{begin,your-turn,thinking,thinking-bed,got-it,again,done}.wav
  *
  * Pure Node: we render sine tones with a click-free envelope and hand-encode 16-bit
- * mono PCM WAV. Re-run to retune.
+ * mono PCM WAV. Re-run to retune. `thinking-bed` is a seamlessly-loopable ambient pad
+ * (played on loop to cover the scoring wait); the rest are one-shot cues.
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -44,6 +46,26 @@ function render(notes) {
   return buf;
 }
 
+/**
+ * A soft, seamlessly-loopable ambient pad for the scoring wait — played on loop so the
+ * 3–4s while we score never reads as a freeze (it sounds like the teacher considering).
+ * Seamless loop: each carrier completes whole cycles over `seconds` (so the waveform hits
+ * the same phase at the seam) and the breathing LFO returns to its start value at both ends.
+ */
+function renderBed(seconds = 2.0) {
+  const len = Math.round(seconds * RATE); // exact length so the loop point lands on sample 0
+  const buf = new Float32Array(len);
+  const carriers = [147, 220, 294]; // ~D3 / A3 / D4 — f * seconds is integer for each
+  for (let i = 0; i < len; i++) {
+    const t = i / RATE;
+    const lfo = 0.6 + 0.4 * (0.5 - 0.5 * Math.cos((2 * Math.PI * t) / seconds)); // breathes, equal at both ends
+    let s = 0;
+    for (const f of carriers) s += Math.sin(2 * Math.PI * f * t);
+    buf[i] = Math.tanh((s / carriers.length) * 0.3 * lfo); // soft — it sits under nothing
+  }
+  return buf;
+}
+
 function encodeWav(float) {
   const data = Buffer.alloc(float.length * 2);
   for (let i = 0; i < float.length; i++) {
@@ -69,6 +91,9 @@ function encodeWav(float) {
 
 // The cue vocabulary. Rising = "go" (your turn); resolved triad = warm/done.
 const EARCONS = {
+  // Begin — a slow, warm ascending open-fifth to open the session; covers the very first
+  // turn's cold load (no prefetch yet) so it starts with a breath of music, not silence.
+  begin: [note(N.D4, 0, 0.34, 0.34), note(N.A4, 0.22, 0.42, 0.34), note(N.E5, 0.46, 0.6, 0.32)],
   // Your turn — two quick ascending notes, an inviting "over to you".
   'your-turn': [note(N.A4, 0, 0.16, 0.5), note(N.E5, 0.13, 0.32, 0.5)],
   // Thinking — one soft low note while scoring, so silence never feels like a freeze.
@@ -88,4 +113,8 @@ for (const [name, notes] of Object.entries(EARCONS)) {
   writeFileSync(join(OUT, `${name}.wav`), wav);
   console.log(`  ${name}.wav  ${wav.length}b`);
 }
+// The loopable scoring bed is rendered on its own (sustained pad, not a one-shot cue).
+const bed = encodeWav(renderBed());
+writeFileSync(join(OUT, 'thinking-bed.wav'), bed);
+console.log(`  thinking-bed.wav  ${bed.length}b`);
 console.log('Done.');

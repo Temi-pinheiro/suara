@@ -10,7 +10,7 @@ import {
   type AudioStatus,
   type RecordingOptions,
 } from 'expo-audio';
-import type { AudioBlobRef, AudioIO, AudioSource } from './types';
+import type { AudioBlobRef, AudioIO, AudioSource, LoopHandle } from './types';
 
 /**
  * 16 kHz mono capture. iOS records LinearPCM WAV, which Azure Pronunciation
@@ -22,6 +22,9 @@ const RECORDING_OPTIONS: RecordingOptions = {
   ...RecordingPresets.HIGH_QUALITY,
   sampleRate: 16000,
   numberOfChannels: 1,
+  // Metering surfaces the live input level (dBFS) on recorder.getStatus(), which drives
+  // natural turn-taking — we end the recording when the learner stops talking.
+  isMeteringEnabled: true,
   extension: Platform.OS === 'ios' ? '.wav' : '.m4a',
   ios: {
     ...RecordingPresets.HIGH_QUALITY.ios,
@@ -98,6 +101,27 @@ export function useExpoAudioIO(): AudioIO {
         }
       },
 
+      playLoop(source: AudioSource): LoopHandle {
+        // An ambient bed that loops until stopped — covers the scoring wait so it never
+        // reads as a freeze. Fire-and-forget playback; no completion promise.
+        const player = createAudioPlayer(source);
+        player.loop = true;
+        player.play();
+        let stopped = false;
+        return {
+          async stop(): Promise<void> {
+            if (stopped) return; // idempotent — safe to call on every exit path
+            stopped = true;
+            try {
+              player.pause();
+            } catch {
+              /* already gone */
+            }
+            player.remove();
+          },
+        };
+      },
+
       async startRecording(): Promise<void> {
         if (!permitted.current) {
           const { granted } = await AudioModule.requestRecordingPermissionsAsync();
@@ -123,6 +147,12 @@ export function useExpoAudioIO(): AudioIO {
         const uri = recorder.uri;
         if (!uri) throw new Error('Recording produced no URI');
         return { uri, mimeType: RECORDING_MIME };
+      },
+
+      getInputLevel(): number | null {
+        // Only meaningful mid-recording; metering is undefined on web / when idle.
+        const status = recorder.getStatus();
+        return status.isRecording ? status.metering ?? null : null;
       },
     }),
     [recorder],

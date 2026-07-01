@@ -42,8 +42,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+        "projectId": "4f1187f2-f43d-4d6d-b4e3-c602dd1f46f9"
       }
-    }
+    },
+    "owner": "devinhio"
   }
 }

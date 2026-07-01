@@ -66,7 +66,7 @@ export function FlowScreen({ api, audio, title, onExit }: Props) {
   const { c, shadow } = useTheme();
   const reduce = useReduceMotion();
   const { state, start, stop, pause, resume, repeat } = useConductor(api, audio);
-  const { phase, prompt, attempt, listenProgress, spend, error } = state;
+  const { phase, prompt, attempt, level, spend, error } = state;
 
   // Start the hands-free loop on mount; tear it down on exit.
   useEffect(() => {
@@ -88,6 +88,16 @@ export function FlowScreen({ api, audio, title, onExit }: Props) {
     return () => loop.stop();
   }, [reduce, breathe]);
   const scale = breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+
+  // While listening, the orb pulses with the learner's own voice (input level) instead of
+  // showing a countdown — you can *see* you're being heard, with no time pressure (§2.7).
+  const listening = phase === 'listening';
+  const voice = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduce || !listening) return;
+    Animated.timing(voice, { toValue: level, duration: 90, easing: Easing.linear, useNativeDriver: true }).start();
+  }, [level, listening, reduce, voice]);
+  const voiceScale = voice.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] });
 
   const color = orbColor(phase, attempt?.verdict, c);
   const paused = phase === 'paused';
@@ -122,24 +132,17 @@ export function FlowScreen({ api, audio, title, onExit }: Props) {
           <Animated.View
             style={[
               styles.orb,
-              { backgroundColor: color, shadowColor: color, transform: [{ scale: paused ? 1 : scale }] },
+              { backgroundColor: color, shadowColor: color, transform: [{ scale: paused ? 1 : listening ? voiceScale : scale }] },
               !paused && shadow.glowLive,
-              { shadowOpacity: phase === 'listening' ? 0.5 : 0.28 },
+              { shadowOpacity: listening ? 0.5 : 0.28 },
             ]}
           >
             <Ionicons
-              name={paused ? 'pause' : phase === 'listening' ? 'mic' : phase === 'feedback' ? 'sparkles' : 'volume-high'}
+              name={paused ? 'pause' : listening ? 'mic' : phase === 'feedback' ? 'sparkles' : 'volume-high'}
               size={40}
               color={c.onPrimary}
             />
           </Animated.View>
-
-          {/* Listening window — a calm bar, not a countdown clock (no pressure). */}
-          {phase === 'listening' ? (
-            <View style={[styles.bar, { backgroundColor: c.stroke }]}>
-              <View style={[styles.barFill, { backgroundColor: c.live, width: `${Math.round(listenProgress * 100)}%` }]} />
-            </View>
-          ) : null}
         </View>
 
         {bigWord ? (
@@ -166,8 +169,6 @@ const styles = StyleSheet.create({
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36, gap: 30 },
   orbWrap: { alignItems: 'center', gap: 22 },
   orb: { width: 132, height: 132, borderRadius: 66, alignItems: 'center', justifyContent: 'center' },
-  bar: { width: 180, height: 6, borderRadius: 999, overflow: 'hidden' },
-  barFill: { height: 6, borderRadius: 999 },
   word: { alignItems: 'center' },
   caption: { fontSize: 19, lineHeight: 27, fontWeight: '500', textAlign: 'center' },
   hint: { textAlign: 'center', fontSize: 12, fontWeight: '600', paddingBottom: 10 },
